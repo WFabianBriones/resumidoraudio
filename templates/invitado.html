@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modo Invitado - EduTranscribe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .navbar-brand {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .navbar-actions a {
+            color: white;
+            text-decoration: none;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+
+        .navbar-actions a:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .info-banner {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .info-banner strong {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+            background: white;
+            padding: 0 20px;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .tab {
+            padding: 18px 30px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .search-filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .clases-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .clase-card {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .clase-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .clase-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .clase-meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .clase-preview {
+            color: #777;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: white;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 40px;
+            border-radius: 15px;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 30px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .result-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-box h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .result-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.8;
+            color: #333;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            display: block;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            display: block;
+        }
+
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .processing-text {
+            text-align: center;
+            color: #666;
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        .temp-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .search-filters {
+                grid-template-columns: 1fr;
+            }
+            
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">🎓 EduTranscribe - Modo Invitado</div>
+        <div class="navbar-actions">
+            <a href="/registro">👨‍🏫 Registrarse como Docente</a>
+            <a href="/">← Inicio</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="info-banner">
+            <strong>👤 Estás en modo invitado</strong>
+            Puedes buscar clases públicas y transcribir audios temporalmente. Los resultados no se guardarán.
+            <a href="/registro" style="color: #667eea; font-weight: bold;">Regístrate</a> para guardar tu contenido.
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('buscar')">🔍 Buscar Clases</button>
+            <button class="tab" onclick="showTab('transcribir')">🎤 Transcribir Audio</button>
+        </div>
+
+        <!-- TAB: Buscar Clases -->
+        <div id="tab-buscar" class="tab-content active">
+            <div class="card">
+                <h2>🔍 Buscar Clases Públicas</h2>
+                
+                <div class="search-filters">
+                    <div class="form-group">
+                        <label>Fecha</label>
+                        <input type="date" id="filtroFecha" onchange="buscarClases()">
+                    </div>
+                    <div class="form-group">
+                        <label>Docente</label>
+                        <input type="text" id="filtroDocente" placeholder="Nombre del docente" onkeyup="buscarClases()">
+                    </div>
+                    <div class="form-group">
+                        <label>Materia</label>
+                        <input type="text" id="filtroMateria" placeholder="Ej: Matemáticas" onkeyup="buscarClases()">
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="limpiarFiltros()">🔄 Limpiar Filtros</button>
+
+                <div id="clasesList" class="clases-grid" style="margin-top: 30px;"></div>
+            </div>
+        </div>
+
+        <!-- TAB: Transcribir -->
+        <div id="tab-transcribir" class="tab-content">
+            <div class="card">
+                <h2>🎤 Transcribir Audio Temporalmente</h2>
+                
+                <div class="temp-warning">
+                    <strong>⚠️ Nota importante:</strong> Esta transcripción es temporal y NO se guardará en la base de datos.
+                    Si deseas guardar tus clases, <a href="/registro" style="color: #667eea; font-weight: bold;">regístrate como docente</a>.
+                </div>
+
+                <div class="form-group" style="margin-top: 30px;">
+                    <label>Archivo de audio</label>
+                    <input type="file" id="audioFile" accept="audio/*" onchange="handleAudioSelect()">
+                </div>
+
+                <button id="transcribeBtn" class="btn btn-primary" onclick="transcribirAudio()" style="display: none;">
+                    Transcribir Audio
+                </button>
+
+                <div id="statusTranscribe" class="status"></div>
+                
+                <div class="loader" id="loaderTranscribe"></div>
+                <p class="processing-text" id="processingTextTranscribe" style="display: none;"></p>
+
+                <div id="resultsTranscribe" style="display: none; margin-top: 30px;">
+                    <div class="result-box">
+                        <h3>📝 Transcripción</h3>
+                        <div id="transcriptTemp" class="result-content"></div>
+                    </div>
+                    <div class="result-box">
+                        <h3>📚 Resumen</h3>
+                        <div id="summaryTemp" class="result-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver clase -->
+    <div id="claseModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedAudioFile;
+
+        // Cargar clases al inicio
+        buscarClases();
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        async function buscarClases() {
+            const fecha = document.getElementById('filtroFecha').value;
+            const docente = document.getElementById('filtroDocente').value;
+            const materia = document.getElementById('filtroMateria').value;
+
+            const params = new URLSearchParams();
+            if (fecha) params.append('fecha', fecha);
+            if (docente) params.append('docente', docente);
+            if (materia) params.append('materia', materia);
+
+            try {
+                const response = await fetch(`/api/clases/publicas?${params}`);
+                const clases = await response.json();
+                
+                const list = document.getElementById('clasesList');
+                
+                if (clases.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔍</div>
+                            <h3>No se encontraron clases</h3>
+                            <p>Intenta con otros filtros</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                list.innerHTML = clases.map(clase => `
+                    <div class="clase-card" onclick="viewClase(${clase.id})">
+                        <h3>${clase.titulo}</h3>
+                        <div class="clase-meta">
+                            <span>📅 ${new Date(clase.fecha_grabacion).toLocaleDateString('es-ES')}</span>
+                            ${clase.materia ? '<span>📖 ' + clase.materia + '</span>' : ''}
+                            <span>👨‍🏫 ${clase.docente_nombre}</span>
+                        </div>
+                        <div class="clase-preview">${clase.preview_transcripcion || ''}...</div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Error buscando clases:', err);
+            }
+        }
+
+        function limpiarFiltros() {
+            document.getElementById('filtroFecha').value = '';
+            document.getElementById('filtroDocente').value = '';
+            document.getElementById('filtroMateria').value = '';
+            buscarClases();
+        }
+
+        async function viewClase(id) {
+            try {
+                const response = await fetch(`/api/clase/${id}`);
+                const clase = await response.json();
+                
+                document.getElementById('modalContent').innerHTML = `
+                    <h2>${clase.titulo}</h2>
+                    <p style="color: #666; margin-bottom: 20px;">
+                        📅 ${new Date(clase.fecha_grabacion).toLocaleDateString('es-ES')}
+                        ${clase.materia ? ' | 📖 ' + clase.materia : ''}
+                        | 👨‍🏫 ${clase.docente_nombre}
+                    </p>
+                    <div class="result-box">
+                        <h3>📝 Transcripción</h3>
+                        <div class="result-content">${clase.transcripcion}</div>
+                    </div>
+                    <div class="result-box">
+                        <h3>📚 Resumen</h3>
+                        <div class="result-content">${clase.resumen}</div>
+                    </div>
+                `;
+                
+                document.getElementById('claseModal').style.display = 'block';
+            } catch (err) {
+                alert('Error al cargar la clase');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('claseModal').style.display = 'none';
+        }
+
+        function handleAudioSelect() {
+            selectedAudioFile = document.getElementById('audioFile').files[0];
+            if (selectedAudioFile) {
+                document.getElementById('transcribeBtn').style.display = 'inline-flex';
+            }
+        }
+
+        async function transcribirAudio() {
+            if (!selectedAudioFile) return;
+
+            const formData = new FormData();
+            formData.append('audio', selectedAudioFile);
+            formData.append('titulo', 'Transcripción temporal');
+
+            showStatusTranscribe('Procesando audio... Esto puede tomar varios minutos.', 'info');
+            showLoaderTranscribe('Transcribiendo con Whisper Medium...');
+
+            try {
+                // Crear AbortController para timeout largo
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutos
+
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                const data = await response.json();
+
+                hideLoaderTranscribe();
+
+                if (data.success) {
+                    showStatusTranscribe('✅ Transcripción completada. Recuerda que estos resultados son temporales.', 'warning');
+                    displayResultsTranscribe(data.transcript, data.summary);
+                    
+                    // Limpiar
+                    document.getElementById('audioFile').value = '';
+                    document.getElementById('transcribeBtn').style.display = 'none';
+                    selectedAudioFile = null;
+                } else {
+                    showStatusTranscribe('Error: ' + data.error, 'error');
+                }
+            } catch (err) {
+                hideLoaderTranscribe();
+                if (err.name === 'AbortError') {
+                    showStatusTranscribe('Tiempo de espera agotado. El archivo es muy grande. Intenta con un audio más corto.', 'error');
+                } else {
+                    showStatusTranscribe('Error al procesar audio: ' + err.message, 'error');
+                }
+            }
+        }
+
+        function showStatusTranscribe(message, type) {
+            const status = document.getElementById('statusTranscribe');
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+
+        function showLoaderTranscribe(message) {
+            document.getElementById('loaderTranscribe').style.display = 'block';
+            document.getElementById('processingTextTranscribe').textContent = message;
+            document.getElementById('processingTextTranscribe').style.display = 'block';
+        }
+
+        function hideLoaderTranscribe() {
+            document.getElementById('loaderTranscribe').style.display = 'none';
+            document.getElementById('processingTextTranscribe').style.display = 'none';
+        }
+
+        function displayResultsTranscribe(transcript, summary) {
+            document.getElementById('transcriptTemp').textContent = transcript;
+            document.getElementById('summaryTemp').textContent = summary;
+            document.getElementById('resultsTranscribe').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

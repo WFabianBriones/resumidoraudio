@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduTranscribe - IA para Educación</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .hero-content {
+            max-width: 800px;
+        }
+
+        .hero h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            animation: fadeInDown 1s;
+        }
+
+        .hero p {
+            font-size: 1.4em;
+            margin-bottom: 40px;
+            opacity: 0.95;
+            animation: fadeInUp 1s;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 1.2s;
+        }
+
+        .btn {
+            padding: 18px 40px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        .features {
+            padding: 80px 20px;
+            background: #f8f9fa;
+        }
+
+        .features-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 60px;
+            color: #333;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+        }
+
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .feature-card p {
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .how-it-works {
+            padding: 80px 20px;
+            background: white;
+        }
+
+        .how-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .how-it-works h2 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 60px;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        .step-number {
+            font-size: 3em;
+            font-weight: bold;
+            color: #667eea;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .step-content h3 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .roles-section {
+            padding: 80px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .roles-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .roles-section h2 {
+            font-size: 2.5em;
+            margin-bottom: 60px;
+        }
+
+        .roles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+        }
+
+        .role-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .role-card h3 {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        .role-features {
+            text-align: left;
+            margin: 20px 0;
+        }
+
+        .role-features li {
+            margin-bottom: 10px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .role-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        footer {
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5em;
+            }
+            
+            .hero p {
+                font-size: 1.1em;
+            }
+
+            .step {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section class="hero">
+        <div class="hero-content">
+            <h1>🎓 EduTranscribe</h1>
+            <p>Transforma tus clases en material de estudio con Inteligencia Artificial. Graba, transcribe y genera resúmenes automáticamente.</p>
+            <div class="cta-buttons">
+                <a href="/login" class="btn btn-primary">👨‍🏫 Soy Docente</a>
+                <a href="/invitado" class="btn btn-secondary">👤 Ingresar como Invitado</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="features-container">
+            <h2>¿Qué hace EduTranscribe?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎤</div>
+                    <h3>Grabación Inteligente</h3>
+                    <p>Graba tus clases directamente desde el navegador o sube archivos de audio existentes. Soporta sesiones de hasta 2 horas.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📝</div>
+                    <h3>Transcripción Precisa</h3>
+                    <p>Utiliza Whisper de OpenAI para transcribir audio a texto con alta precisión en español.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>Resúmenes con IA</h3>
+                    <p>Llama 3 genera resúmenes estructurados perfectos para estudiar: conceptos clave, ejemplos y conclusiones.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🗂️</div>
+                    <h3>Organización Simple</h3>
+                    <p>Organiza tus clases por materia, fecha y profesor. Búsqueda rápida cuando necesites encontrar algo específico.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Compartir Conocimiento</h3>
+                    <p>Los docentes pueden hacer sus clases públicas para que cualquier persona pueda acceder al contenido.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Privacidad Total</h3>
+                    <p>Tú decides qué clases son públicas y cuáles privadas. Control completo sobre tu contenido.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-it-works">
+        <div class="how-container">
+            <h2>¿Cómo Funciona?</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Graba o Sube tu Clase</h3>
+                        <p>Usa el micrófono para grabar en vivo o sube un archivo de audio de tu clase.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Transcripción Automática</h3>
+                        <p>Whisper Medium transcribe el audio a texto con alta precisión, incluso con ruido de fondo.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Generación de Resumen</h3>
+                        <p>Llama 3 analiza la transcripción y crea un resumen estructurado ideal para estudiar.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Guarda y Comparte</h3>
+                        <p>Accede a tu biblioteca personal, busca contenido y comparte clases con estudiantes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="roles-section">
+        <div class="roles-container">
+            <h2>Elige tu Modo</h2>
+            <div class="roles-grid">
+                <div class="role-card">
+                    <h3>👨‍🏫 Docente</h3>
+                    <ul class="role-features">
+                        <li>Graba y almacena clases ilimitadas</li>
+                        <li>Organiza por materias y temas</li>
+                        <li>Comparte clases públicamente</li>
+                        <li>Gestiona tu biblioteca personal</li>
+                        <li>Estadísticas de uso</li>
+                        <li>Exporta transcripciones</li>
+                    </ul>
+                    <a href="/login" class="btn btn-primary" style="margin-top: 20px;">Registrarse Gratis</a>
+                </div>
+                <div class="role-card">
+                    <h3>👤 Invitado</h3>
+                    <ul class="role-features">
+                        <li>Busca clases públicas</li>
+                        <li>Filtra por fecha y docente</li>
+                        <li>Transcribe audios temporalmente</li>
+                        <li>Acceso sin registro</li>
+                        <li>Ideal para probar la plataforma</li>
+                    </ul>
+                    <a href="/invitado" class="btn btn-secondary" style="margin-top: 20px;">Entrar como Invitado</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; 2024 EduTranscribe | Powered by Whisper AI & Llama 3</p>
+        <p style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;">
+            Tecnología de código abierto para la educación
+        </p>
+    </footer>
+</body>
+</html>
