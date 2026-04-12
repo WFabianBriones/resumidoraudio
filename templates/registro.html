@@ -1,259 +1,176 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro - EduTranscribe</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+{% extends "base.html" %}
+{% block title %}Crear cuenta — EduTranscribe{% endblock %}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+{% block content %}
+<div class="auth-layout">
 
-        .registro-container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            padding: 50px;
-            max-width: 500px;
-            width: 100%;
-            animation: slideIn 0.5s;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .logo h1 {
-            font-size: 2.5em;
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-
-        .logo p {
-            color: #666;
-        }
-
-        .form-group {
-            margin-bottom: 25px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.3s;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .message {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .message.error {
-            background: #f8d7da;
-            color: #721c24;
-            display: block;
-        }
-
-        .message.success {
-            background: #d4edda;
-            color: #155724;
-            display: block;
-        }
-
-        .login-link {
-            text-align: center;
-            margin-top: 25px;
-            color: #666;
-        }
-
-        .login-link a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .login-link a:hover {
-            text-decoration: underline;
-        }
-
-        .back-home {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .back-home a {
-            color: #667eea;
-            text-decoration: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="registro-container">
-        <div class="logo">
-            <h1>🎓 EduTranscribe</h1>
-            <p>Registro de Docentes</p>
+  <!-- Panel izquierdo -->
+  <div class="auth-panel-left">
+    <div class="auth-panel-left-grid"></div>
+    <div class="auth-left-content">
+      <div class="auth-left-top">
+        <div class="nav-logo-mark">
+          <svg viewBox="0 0 18 18" fill="none"><path d="M2 9h2M5 5h2M5 13h2M9 3h2M9 15h2M13 6h2M13 12h2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
         </div>
-
-        <div id="message" class="message"></div>
-
-        <form id="registroForm" onsubmit="registrar(event)">
-            <div class="form-group">
-                <label>Nombre Completo *</label>
-                <input type="text" id="nombre" required placeholder="Ej: Dr. Juan Pérez">
-            </div>
-
-            <div class="form-group">
-                <label>Correo Electrónico *</label>
-                <input type="email" id="email" required placeholder="tu@email.com">
-            </div>
-
-            <div class="form-group">
-                <label>Institución</label>
-                <input type="text" id="institucion" placeholder="Ej: Universidad Nacional">
-            </div>
-
-            <div class="form-group">
-                <label>Contraseña *</label>
-                <input type="password" id="password" required minlength="6" placeholder="Mínimo 6 caracteres">
-            </div>
-
-            <div class="form-group">
-                <label>Confirmar Contraseña *</label>
-                <input type="password" id="confirmPassword" required placeholder="Repite tu contraseña">
-            </div>
-
-            <button type="submit" class="btn" id="submitBtn">Crear Cuenta</button>
-        </form>
-
-        <div class="login-link">
-            ¿Ya tienes cuenta? <a href="/login">Inicia sesión aquí</a>
+        <a class="auth-left-logo" href="{{ url_for('home') }}">EduTranscribe</a>
+      </div>
+      <p class="auth-quote">Empieza a transformar tus <em>clases hoy</em></p>
+      <p class="auth-desc">Regístrate gratis y accede a transcripciones y resúmenes automáticos.</p>
+      <div style="margin-top:32px; display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:32px;height:32px;background:rgba(200,151,58,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold-lt);font-weight:700;font-size:13px;flex-shrink:0;">1</div>
+          <span style="font-size:14px;color:rgba(246,241,231,.75);">Crea tu cuenta gratis en menos de 2 minutos</span>
         </div>
-
-        <div class="back-home">
-            <a href="/">← Volver al inicio</a>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:32px;height:32px;background:rgba(200,151,58,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold-lt);font-weight:700;font-size:13px;flex-shrink:0;">2</div>
+          <span style="font-size:14px;color:rgba(246,241,231,.75);">Elige si eres docente o estudiante</span>
         </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:32px;height:32px;background:rgba(200,151,58,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold-lt);font-weight:700;font-size:13px;flex-shrink:0;">3</div>
+          <span style="font-size:14px;color:rgba(246,241,231,.75);">Empieza a subir y procesar clases</span>
+        </div>
+      </div>
     </div>
+    <div class="auth-left-bottom">
+      <p style="font-size:13px;color:rgba(246,241,231,.4);">Al registrarte aceptas que el sistema almacena tus datos académicos de forma segura.</p>
+    </div>
+  </div>
 
-    <script>
-        async function registrar(event) {
-            event.preventDefault();
-            
-            const nombre = document.getElementById('nombre').value;
-            const email = document.getElementById('email').value;
-            const institucion = document.getElementById('institucion').value;
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-            
-            if (password !== confirmPassword) {
-                mostrarMensaje('Las contraseñas no coinciden', 'error');
-                return;
-            }
-            
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Creando cuenta...';
-            
-            try {
-                const response = await fetch('/api/registro', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        nombre,
-                        email,
-                        institucion,
-                        password
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    mostrarMensaje('¡Cuenta creada exitosamente! Redirigiendo...', 'success');
-                    setTimeout(() => {
-                        window.location.href = '/login';
-                    }, 2000);
-                } else {
-                    mostrarMensaje(data.error || 'Error al crear cuenta', 'error');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Crear Cuenta';
-                }
-            } catch (error) {
-                mostrarMensaje('Error de conexión. Intenta nuevamente.', 'error');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Crear Cuenta';
-            }
-        }
-        
-        function mostrarMensaje(texto, tipo) {
-            const mensaje = document.getElementById('message');
-            mensaje.textContent = texto;
-            mensaje.className = 'message ' + tipo;
-        }
-    </script>
-</body>
-</html>
+  <!-- Panel derecho -->
+  <div class="auth-panel-right" style="overflow-y:auto; justify-content:flex-start; padding-top:40px; padding-bottom:40px;">
+    <div class="auth-form-wrapper">
+      <h1 class="auth-form-title">Crear cuenta</h1>
+      <p class="auth-form-sub">
+        ¿Ya tienes cuenta? <a href="{{ url_for('login') }}">Inicia sesión</a>
+      </p>
+
+      <div class="alert alert-error" id="regAlert"></div>
+
+      <form class="auth-form" id="regForm">
+
+        <!-- Selector de rol -->
+        <div class="form-group">
+          <label>Soy…</label>
+          <div class="role-selector">
+            <div>
+              <input type="radio" name="rol" id="rolDocente" value="docente" class="role-option" checked>
+              <label for="rolDocente" class="role-option-label">
+                <div class="role-option-icon role-option-icon-doc">🎓</div>
+                <div class="role-option-name">Docente</div>
+                <div class="role-option-desc">Subo y comparto mis clases</div>
+                <div class="role-option-check">
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </label>
+            </div>
+            <div>
+              <input type="radio" name="rol" id="rolEstudiante" value="estudiante" class="role-option">
+              <label for="rolEstudiante" class="role-option-label">
+                <div class="role-option-icon role-option-icon-est">📖</div>
+                <div class="role-option-name">Estudiante</div>
+                <div class="role-option-desc">Accedo a clases de mis docentes</div>
+                <div class="role-option-check">
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="nombre">Nombre</label>
+            <input type="text" id="nombre" class="form-input" placeholder="Ej: María" required>
+          </div>
+          <div class="form-group">
+            <label for="apellido">Apellido</label>
+            <input type="text" id="apellido" class="form-input" placeholder="Ej: García" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Correo electrónico</label>
+          <input type="email" id="email" class="form-input" placeholder="nombre@uleam.edu.ec" required>
+        </div>
+
+        <div class="form-group">
+          <label for="institucion">Institución</label>
+          <input type="text" id="institucion" class="form-input" placeholder="Ej: ULEAM El Carmen">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Contraseña</label>
+          <input type="password" id="password" class="form-input" placeholder="Mínimo 8 caracteres"
+            oninput="updatePassStrength(this.value)" required>
+          <div class="pass-strength">
+            <div class="pass-bar" id="bar1"></div>
+            <div class="pass-bar" id="bar2"></div>
+            <div class="pass-bar" id="bar3"></div>
+            <div class="pass-bar" id="bar4"></div>
+          </div>
+        </div>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="terms" required>
+          <label for="terms">Acepto los <a href="#">términos de uso</a> y la <a href="#">política de privacidad</a></label>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-full" id="regBtn">Crear cuenta</button>
+      </form>
+
+      <div style="text-align:center; margin-top:24px;">
+        <a href="{{ url_for('home') }}" style="color:var(--ink-3); font-size:13px; text-decoration:none;">← Volver al inicio</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updatePassStrength(val) {
+  const bars = ['bar1','bar2','bar3','bar4'];
+  bars.forEach(b => document.getElementById(b).className = 'pass-bar');
+  let strength = 0;
+  if (val.length >= 8) strength++;
+  if (val.length >= 12) strength++;
+  if (/[A-Z]/.test(val) && /[0-9]/.test(val)) strength++;
+  if (/[^A-Za-z0-9]/.test(val)) strength++;
+  const cls = strength <= 1 ? 'weak' : strength <= 2 ? 'medium' : 'strong';
+  for (let i = 0; i < Math.min(strength + 1, 4); i++) {
+    document.getElementById(bars[i]).className = `pass-bar ${cls}`;
+  }
+}
+
+document.getElementById('regForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('regBtn');
+  btn.textContent = 'Creando cuenta…'; btn.disabled = true;
+
+  const payload = {
+    nombre:      document.getElementById('nombre').value.trim() + ' ' + document.getElementById('apellido').value.trim(),
+    email:       document.getElementById('email').value.trim(),
+    password:    document.getElementById('password').value,
+    institucion: document.getElementById('institucion').value.trim(),
+    rol:         document.querySelector('input[name="rol"]:checked').value
+  };
+
+  const res  = await fetch('/api/registro', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+
+  if (json.success) {
+    showToast('Cuenta creada correctamente', 'success');
+    window.location.href = json.redirect;
+  } else {
+    const alert = document.getElementById('regAlert');
+    alert.textContent = json.error || 'Error al crear la cuenta';
+    alert.classList.add('show');
+    btn.textContent = 'Crear cuenta'; btn.disabled = false;
+  }
+});
+</script>
+{% endblock %}

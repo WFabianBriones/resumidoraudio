@@ -1,9 +1,7 @@
 import os
 import whisper
-import sounddevice as sd
-import scipy.io.wavfile as wav
 import numpy as np
-from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, session, flash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
@@ -15,22 +13,20 @@ from contextlib import contextmanager
 from functools import wraps
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'tu-clave-secreta-aqui-cambiala-en-produccion'
+app.config['SECRET_KEY'] = 'tu-clave-secreta-cambiala-en-produccion'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB max
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
 
-# Habilitar CORS para todas las rutas
 CORS(app)
 
-# Configuración
 UPLOAD_FOLDER = 'uploads'
 DATABASE = 'clases.db'
 ALLOWED_EXTENSIONS = {'wav', 'mp3', 'mp4', 'm4a', 'ogg'}
-
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Flask-Login
+# ─── Flask-Login ────────────────────────────────────────────────────────────
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -45,39 +41,53 @@ class User(UserMixin):
 @login_manager.user_loader
 def load_user(user_id):
     with get_db() as conn:
-        user = conn.execute(
-            'SELECT * FROM usuarios WHERE id = ?', (user_id,)
-        ).fetchone()
+        user = conn.execute('SELECT * FROM usuarios WHERE id = ?', (user_id,)).fetchone()
         if user:
             return User(user['id'], user['email'], user['nombre'], user['rol'])
     return None
 
-# Decorador para verificar rol de docente
+# ─── Decoradores de rol ──────────────────────────────────────────────────────
+
 def docente_required(f):
     @wraps(f)
-    def decorated_function(*args, **kwargs):
+    def decorated(*args, **kwargs):
         if not current_user.is_authenticated or current_user.rol != 'docente':
             return jsonify({'error': 'Acceso denegado. Solo para docentes.'}), 403
         return f(*args, **kwargs)
-    return decorated_function
+    return decorated
 
-# Inicializar base de datos
+def estudiante_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.rol != 'estudiante':
+            return jsonify({'error': 'Acceso denegado. Solo para estudiantes.'}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+# ─── Base de datos ───────────────────────────────────────────────────────────
+
+@contextmanager
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+    finally:
+        conn.close()
+
 def init_db():
     with get_db() as conn:
-        # Tabla de usuarios
         conn.execute('''
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 nombre TEXT NOT NULL,
-                rol TEXT DEFAULT 'docente',
+                rol TEXT DEFAULT 'docente',        -- 'docente' | 'estudiante'
                 institucion TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
-        # Tabla de clases (ahora con docente_id)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS clases (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,286 +102,71 @@ def init_db():
                 notas TEXT,
                 es_publica BOOLEAN DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (docente_id) REFERENCES usuarios (id) ON DELETE CASCADE
+                FOREIGN KEY (docente_id) REFERENCES usuarios(id) ON DELETE CASCADE
             )
         ''')
-        
-        # Tabla de tags
         conn.execute('''
             CREATE TABLE IF NOT EXISTS tags (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 clase_id INTEGER,
                 tag TEXT,
-                FOREIGN KEY (clase_id) REFERENCES clases (id) ON DELETE CASCADE
+                FOREIGN KEY (clase_id) REFERENCES clases(id) ON DELETE CASCADE
             )
         ''')
-        
-        # Tabla de sesiones temporales para invitados
+        # Favoritos de estudiantes
         conn.execute('''
-            CREATE TABLE IF NOT EXISTS sesiones_invitado (
+            CREATE TABLE IF NOT EXISTS favoritos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT UNIQUE,
-                transcripcion TEXT,
-                resumen TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                estudiante_id INTEGER NOT NULL,
+                clase_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(estudiante_id, clase_id),
+                FOREIGN KEY (estudiante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                FOREIGN KEY (clase_id) REFERENCES clases(id) ON DELETE CASCADE
             )
         ''')
-        
         conn.commit()
 
-@contextmanager
-def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+# ─── Cargar Whisper ──────────────────────────────────────────────────────────
 
-# Cargar modelo Whisper
-print("Cargando modelo Whisper base en CPU (optimizado)...")
-import torch
-# Forzar uso de CPU para evitar conflictos con Ollama en GPU
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Ocultar GPU de PyTorch
+print("Cargando modelo Whisper base en CPU...")
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 whisper_model = whisper.load_model("base", device="cpu")
-print("Modelo Whisper cargado en CPU exitosamente")
+print("Whisper cargado correctamente")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def post_process_transcript(text):
-    """Corrección automática GENÉRICA de errores comunes de Whisper en español"""
-    
-    # Solo correcciones que aplican a CUALQUIER audio en español
-    generic_corrections = {
-        # Palabras comúnmente mal transcritas por Whisper
-        ' senstos ': ' sentidos ',
-        ' exaustos ': ' exhaustos ',
-        ' exausto ': ' exhausto ',
-        ' amasa ': ' en masa ',
-        ' cobernada ': ' gobernada ',
-        ' cobernado ': ' gobernado ',
-        ' mullieron ': ' murieron ',
-        ' mulló ': ' murió ',
-        ' pasacre ': ' masacre ',
-        
-        # Palabras con tildes comúnmente omitidas
-        ' tambien ': ' también ',
-        ' mas ': ' más ',  # Solo cuando no es "pero"
-        ' si ': ' sí ',     # Contextual
-        ' solo ': ' sólo ',
-    }
-    
-    corrected_text = text
-    corrections_made = []
-    
-    for error, correction in generic_corrections.items():
-        if error in corrected_text:
-            corrected_text = corrected_text.replace(error, correction)
-            corrections_made.append(f"{error.strip()} → {correction.strip()}")
-    
-    if corrections_made:
-        print(f"  ✓ Correcciones automáticas: {len(corrections_made)}")
-        for corr in corrections_made[:3]:  # Mostrar primeras 3
-            print(f"    • {corr}")
-        if len(corrections_made) > 3:
-            print(f"    • ... y {len(corrections_made) - 3} más")
-    
-    return corrected_text
+# ─── Resumen con Llama ───────────────────────────────────────────────────────
 
-def transcribe_audio(audio_path):
-    """Transcribe audio usando Whisper con post-procesamiento genérico"""
-    print(f"🎤 Iniciando transcripción de: {audio_path}")
-    result = whisper_model.transcribe(
-        audio_path, 
-        language='es',
-        verbose=False,  # Reducir output innecesario
-        fp16=False      # Mejor precisión en CPU
-    )
-    
-    # Post-procesar solo errores genéricos comunes
-    transcript = result['text']
-    print(f"✓ Transcripción base completada: {len(transcript)} caracteres")
-    
-    transcript = post_process_transcript(transcript)
-    
-    return transcript
+def generate_summary(text):
+    """Genera resumen con Llama usando el método analítico-sintético."""
+    prompt = f"""Eres un asistente educativo. Analiza la siguiente transcripción de una clase universitaria y genera un resumen estructurado aplicando el método analítico-sintético.
 
-def chunk_text(text, chunk_size=5000):  # Chunks más grandes = menos llamadas a Llama
-    """Divide el texto en chunks para procesamiento"""
-    words = text.split()
-    chunks = []
-    current_chunk = []
-    current_length = 0
-    
-    for word in words:
-        current_length += len(word) + 1
-        if current_length > chunk_size:
-            chunks.append(' '.join(current_chunk))
-            current_chunk = [word]
-            current_length = len(word)
-        else:
-            current_chunk.append(word)
-    
-    if current_chunk:
-        chunks.append(' '.join(current_chunk))
-    
-    return chunks
-
-def validate_summary(summary, chunk_original=""):
-    """Detectar y advertir sobre alucinaciones comunes en resúmenes IA"""
-    errors_found = []
-    corrected_summary = summary
-    
-    # 1. Detectar anacronismos tecnológicos comunes (IA inventa tecnología moderna)
-    modern_tech = {
-        'computadora': 'cálculos',
-        'ordenador': 'cálculos',
-        'internet': 'comunicaciones',
-        'celular': 'teléfono',
-        'móvil': 'teléfono',
-        'satélite': 'observación aérea',
-        'dron': 'avión',
-        'email': 'correspondencia',
-        'software': 'sistema',
-        'app': 'aplicación',
-        'digital': 'registrado',
-    }
-    
-    summary_lower = corrected_summary.lower()
-    
-    for tech_term, replacement in modern_tech.items():
-        if tech_term in summary_lower:
-            # Solo advertir, no corregir automáticamente (podría ser legítimo)
-            errors_found.append(f"⚠️ Término moderno detectado: '{tech_term}' - Verificar contexto")
-    
-    # 2. Detectar frases típicas de IA alucinando
-    hallucination_phrases = [
-        'como sabemos',
-        'es bien conocido que',
-        'históricamente se sabe',
-        'según los expertos',
-        'la investigación muestra',
-    ]
-    
-    for phrase in hallucination_phrases:
-        if phrase in summary_lower and phrase not in chunk_original.lower():
-            errors_found.append(f"⚠️ Posible alucinación: '{phrase}' no está en el texto original")
-    
-    # 3. Advertir si hay demasiados números/fechas no presentes en el original
-    import re
-    summary_years = set(re.findall(r'\b(1[0-9]{3}|2[0-9]{3})\b', corrected_summary))
-    if chunk_original:
-        original_years = set(re.findall(r'\b(1[0-9]{3}|2[0-9]{3})\b', chunk_original))
-        invented_years = summary_years - original_years
-        if invented_years:
-            errors_found.append(f"⚠️ Fechas no presentes en original: {invented_years}")
-    
-    # 4. Mostrar advertencias
-    if errors_found:
-        print(f"  🔍 Validación detectó {len(errors_found)} advertencias:")
-        for error in errors_found[:5]:  # Mostrar primeras 5
-            print(f"    {error}")
-    
-    return corrected_summary
-
-def summarize_with_llama(text):
-    """Crea resumen usando Llama 3.1-8B a través de Ollama (GPU optimizado)"""
-    chunks = chunk_text(text, chunk_size=5000)
-    summaries = []
-    
-    print(f"Procesando {len(chunks)} chunks con Llama 3.1-8B...")
-    
-    for i, chunk in enumerate(chunks):
-        print(f"Procesando chunk {i+1}/{len(chunks)}")
-        
-        # Prompt mejorado anti-alucinación
-        prompt = f"""Eres un asistente académico experto. Tu tarea es crear un resumen PRECISO del siguiente fragmento.
-
-REGLAS CRÍTICAS:
-- Basa tu resumen ÚNICAMENTE en la información presente en el texto
-- NO agregues información externa, fechas o eventos que no estén explícitamente mencionados
-- NO menciones tecnologías que no aparecen en el texto (ej: NO inventes armas o tecnologías)
-- Si hay fechas, VERIFICA que sean correctas en el contexto
-- Mantén los nombres propios, lugares y fechas EXACTAMENTE como aparecen
-
-Fragmento de clase:
-{chunk}
-
-Proporciona (basándote SOLO en el texto):
-1. Conceptos principales explicados
-2. Puntos clave y definiciones importantes
-3. Ejemplos o casos mencionados específicamente
-4. Relaciones entre conceptos del texto
-
-Resumen académico (solo información del fragmento):"""
-
-        try:
-            result = subprocess.run(
-                ['ollama', 'run', 'llama3.1:8b', prompt],
-                capture_output=True,
-                text=True,
-                timeout=400  # Más tiempo para modelo más grande
-            )
-            summary = result.stdout.strip()
-            
-            # Validar y corregir el resumen
-            summary = validate_summary(summary, chunk)
-            
-            summaries.append(summary)
-        except subprocess.TimeoutExpired:
-            summaries.append(f"[Timeout en chunk {i+1}]")
-        except Exception as e:
-            summaries.append(f"[Error en chunk {i+1}: {str(e)}]")
-    
-    final_summary = "\n\n--- SECCIÓN {} ---\n\n".join(
-        [f"PARTE {i+1}\n\n{s}" for i, s in enumerate(summaries)]
-    )
-    
-    # Prompt mejorado para consolidación
-    consolidation_prompt = f"""Eres un asistente académico experto. Crea un resumen consolidado del material estudiado.
-
-REGLAS CRÍTICAS:
-- Usa SOLO la información de los resúmenes proporcionados
-- NO agregues información externa o conocimiento general
-- Mantén las fechas y nombres EXACTAMENTE como aparecen
-- NO inventes eventos, tecnologías o detalles que no estén mencionados
-
-Resúmenes parciales:
-{final_summary}
-
-Crea un resumen final consolidado que incluya:
-1. INTRODUCCIÓN: Tema principal de la clase (según los resúmenes)
-2. CONCEPTOS FUNDAMENTALES: Definiciones y teorías clave mencionadas
+El resumen debe seguir exactamente esta estructura:
+1. INTRODUCCIÓN: Tema principal de la clase
+2. CONCEPTOS FUNDAMENTALES: Definiciones y teorías clave
 3. DESARROLLO: Explicación de los temas tratados
-4. EJEMPLOS Y APLICACIONES: Casos prácticos del material
+4. EJEMPLOS Y APLICACIONES: Casos prácticos mencionados
 5. CONCLUSIONES: Ideas principales para recordar
 
-IMPORTANTE: Basa el resumen SOLO en los fragmentos proporcionados.
+Transcripción:
+{text[:4000]}
 
-Resumen consolidado:"""
+Resumen estructurado:"""
 
     try:
         result = subprocess.run(
-            ['ollama', 'run', 'llama3.1:8b', consolidation_prompt],
-            capture_output=True,
-            text=True,
-            timeout=400
+            ['ollama', 'run', 'llama3.1:8b', prompt],
+            capture_output=True, text=True, timeout=300
         )
-        consolidated = result.stdout.strip()
-        
-        # Validar resumen consolidado
-        consolidated = validate_summary(consolidated)
-        
-        print("✓ Resumen consolidado completado y validado")
-        
-        return f"{final_summary}\n\n{'='*50}\n\nRESUMEN CONSOLIDADO\n{'='*50}\n\n{consolidated}"
+        return result.stdout.strip() or "No se pudo generar el resumen."
     except Exception as e:
-        print(f"⚠️ Error en consolidación: {str(e)}")
-        return final_summary
+        return f"Error al generar resumen: {str(e)}"
 
-# ==================== RUTAS ====================
+# ════════════════════════════════════════════════════════════════════
+#   RUTAS — PÁGINAS
+# ════════════════════════════════════════════════════════════════════
 
 @app.route('/')
 def home():
@@ -385,322 +180,336 @@ def login():
 def registro():
     return render_template('registro.html')
 
+@app.route('/docente')
+@login_required
+def docente_dashboard():
+    if current_user.rol != 'docente':
+        return redirect(url_for('estudiante_dashboard'))
+
+    with get_db() as conn:
+        stats = conn.execute('''
+            SELECT
+                COUNT(*) as total_clases,
+                SUM(CASE WHEN es_publica=1 THEN 1 ELSE 0 END) as clases_publicas,
+                COALESCE(SUM(duracion_segundos) / 3600.0, 0) as total_horas,
+                COUNT(DISTINCT materia) as total_materias
+            FROM clases WHERE docente_id = ?
+        ''', (current_user.id,)).fetchone()
+
+        clases_recientes = conn.execute('''
+            SELECT id, titulo, materia, es_publica, fecha_grabacion
+            FROM clases WHERE docente_id = ?
+            ORDER BY fecha_grabacion DESC LIMIT 10
+        ''', (current_user.id,)).fetchall()
+
+    return render_template('docente.html',
+        nombre=current_user.nombre,
+        total_clases=stats['total_clases'],
+        clases_publicas=stats['clases_publicas'],
+        total_horas=stats['total_horas'],
+        total_materias=stats['total_materias'],
+        clases_recientes=clases_recientes
+    )
+
+@app.route('/estudiante')
+@login_required
+def estudiante_dashboard():
+    if current_user.rol != 'estudiante':
+        return redirect(url_for('docente_dashboard'))
+
+    with get_db() as conn:
+        favoritos = conn.execute(
+            'SELECT COUNT(*) as n FROM favoritos WHERE estudiante_id = ?',
+            (current_user.id,)
+        ).fetchone()['n']
+
+    return render_template('estudiante.html',
+        nombre=current_user.nombre,
+        clases_vistas=0,
+        favoritos=favoritos,
+        materias=0
+    )
+
+# Ruta demo (acceso directo sin contraseña, solo para desarrollo)
+@app.route('/demo/<rol>')
+def demo_login(rol):
+    if rol not in ('docente', 'estudiante'):
+        return redirect(url_for('home'))
+
+    demo_email = f'demo_{rol}@edutranscribe.local'
+    with get_db() as conn:
+        user = conn.execute('SELECT * FROM usuarios WHERE email = ?', (demo_email,)).fetchone()
+        if not user:
+            conn.execute(
+                'INSERT INTO usuarios (email, password_hash, nombre, rol) VALUES (?, ?, ?, ?)',
+                (demo_email, generate_password_hash('demo1234'), f'Demo {rol.capitalize()}', rol)
+            )
+            conn.commit()
+            user = conn.execute('SELECT * FROM usuarios WHERE email = ?', (demo_email,)).fetchone()
+
+    user_obj = User(user['id'], user['email'], user['nombre'], user['rol'])
+    login_user(user_obj, remember=False)
+
+    if rol == 'docente':
+        return redirect(url_for('docente_dashboard'))
+    return redirect(url_for('estudiante_dashboard'))
+
+# ════════════════════════════════════════════════════════════════════
+#   RUTAS — API
+# ════════════════════════════════════════════════════════════════════
+
 @app.route('/api/registro', methods=['POST'])
 def api_registro():
     data = request.get_json()
-    
-    email = data.get('email')
-    password = data.get('password')
-    nombre = data.get('nombre')
+    nombre = data.get('nombre', '').strip()
+    email  = data.get('email', '').strip()
+    password = data.get('password', '')
     institucion = data.get('institucion', '')
-    
-    if not email or not password or not nombre:
+    rol = data.get('rol', 'estudiante')   # 'docente' | 'estudiante'
+
+    if not nombre or not email or not password:
         return jsonify({'error': 'Datos incompletos'}), 400
-    
-    password_hash = generate_password_hash(password)
-    
+    if len(password) < 8:
+        return jsonify({'error': 'La contraseña debe tener al menos 8 caracteres'}), 400
+    if rol not in ('docente', 'estudiante'):
+        return jsonify({'error': 'Rol inválido'}), 400
+
     try:
         with get_db() as conn:
             conn.execute(
                 'INSERT INTO usuarios (email, password_hash, nombre, institucion, rol) VALUES (?, ?, ?, ?, ?)',
-                (email, password_hash, nombre, institucion, 'docente')
+                (email, generate_password_hash(password), nombre, institucion, rol)
             )
             conn.commit()
-        return jsonify({'success': True})
+            user = conn.execute('SELECT * FROM usuarios WHERE email = ?', (email,)).fetchone()
+
+        user_obj = User(user['id'], user['email'], user['nombre'], user['rol'])
+        login_user(user_obj, remember=True)
+
+        redirect_url = url_for('docente_dashboard') if rol == 'docente' else url_for('estudiante_dashboard')
+        return jsonify({'success': True, 'redirect': redirect_url})
+
     except sqlite3.IntegrityError:
-        return jsonify({'error': 'El email ya está registrado'}), 400
+        return jsonify({'error': 'El correo ya está registrado'}), 400
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-    
+    # Acepta form data (del formulario HTML con JS fetch)
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form
+
+    email    = data.get('email', '').strip()
+    password = data.get('password', '')
+
     with get_db() as conn:
-        user = conn.execute(
-            'SELECT * FROM usuarios WHERE email = ?', (email,)
-        ).fetchone()
-    
+        user = conn.execute('SELECT * FROM usuarios WHERE email = ?', (email,)).fetchone()
+
     if user and check_password_hash(user['password_hash'], password):
         user_obj = User(user['id'], user['email'], user['nombre'], user['rol'])
         login_user(user_obj, remember=True)
-        return jsonify({'success': True, 'nombre': user['nombre']})
-    
-    return jsonify({'error': 'Credenciales inválidas'}), 401
+
+        redirect_url = url_for('docente_dashboard') if user['rol'] == 'docente' else url_for('estudiante_dashboard')
+        return jsonify({'success': True, 'redirect': redirect_url, 'nombre': user['nombre']})
+
+    return jsonify({'error': 'Correo o contraseña incorrectos'}), 401
 
 @app.route('/api/logout', methods=['POST'])
 @login_required
 def api_logout():
     logout_user()
-    return jsonify({'success': True})
+    return redirect(url_for('home'))
 
-@app.route('/docente')
+# ── Clases (docente) ──────────────────────────────────────────────────────────
+
+@app.route('/api/upload', methods=['POST'])
 @login_required
 @docente_required
-def docente_dashboard():
-    return render_template('docente.html', nombre=current_user.nombre)
+def upload_audio():
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No se recibió archivo de audio'}), 400
 
-@app.route('/invitado')
-def invitado():
-    # Crear session_id para invitado si no existe
-    if 'guest_id' not in session:
-        session['guest_id'] = os.urandom(16).hex()
-    return render_template('invitado.html')
+    file = request.files['audio']
+    if not file or not allowed_file(file.filename):
+        return jsonify({'error': 'Formato de archivo no permitido'}), 400
+
+    titulo     = request.form.get('titulo', 'Clase sin título')
+    materia    = request.form.get('materia', '')
+    tags       = request.form.get('tags', '')
+    notas      = request.form.get('notas', '')
+    es_publica = request.form.get('es_publica', 'true').lower() == 'true'
+
+    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    try:
+        print(f"Transcribiendo: {filepath}")
+        result = whisper_model.transcribe(filepath, language='es')
+        transcripcion = result['text']
+
+        print("Generando resumen con Llama...")
+        resumen = generate_summary(transcripcion)
+
+        duracion = int(result.get('duration', 0))
+
+        with get_db() as conn:
+            cursor = conn.execute('''
+                INSERT INTO clases (docente_id, titulo, duracion_segundos, archivo_audio,
+                                    transcripcion, resumen, materia, notas, es_publica)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (current_user.id, titulo, duracion, filepath,
+                  transcripcion, resumen, materia, notas, es_publica))
+            clase_id = cursor.lastrowid
+
+            if tags:
+                for tag in tags.split(','):
+                    tag = tag.strip()
+                    if tag:
+                        conn.execute('INSERT INTO tags (clase_id, tag) VALUES (?, ?)', (clase_id, tag))
+            conn.commit()
+
+        return jsonify({'success': True, 'transcript': transcripcion, 'summary': resumen, 'clase_id': clase_id})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clases', methods=['GET'])
 @login_required
 @docente_required
 def get_clases():
-    """Obtener clases del docente actual"""
     with get_db() as conn:
         clases = conn.execute('''
-            SELECT id, titulo, fecha_grabacion, duracion_segundos, 
-                   materia, es_publica,
-                   substr(transcripcion, 1, 200) as preview_transcripcion,
-                   substr(resumen, 1, 200) as preview_resumen
-            FROM clases 
-            WHERE docente_id = ?
+            SELECT id, titulo, fecha_grabacion, duracion_segundos, materia, es_publica,
+                   substr(transcripcion, 1, 200) as preview_transcripcion
+            FROM clases WHERE docente_id = ?
             ORDER BY fecha_grabacion DESC
         ''', (current_user.id,)).fetchall()
-        
-        return jsonify([dict(clase) for clase in clases])
+    return jsonify([dict(c) for c in clases])
 
 @app.route('/api/clases/publicas', methods=['GET'])
 def get_clases_publicas():
-    """Obtener clases públicas (para invitados)"""
-    fecha = request.args.get('fecha')
+    fecha   = request.args.get('fecha')
     docente = request.args.get('docente')
     materia = request.args.get('materia')
-    
+
     query = '''
         SELECT c.id, c.titulo, c.fecha_grabacion, c.materia,
                u.nombre as docente_nombre,
                substr(c.transcripcion, 1, 200) as preview_transcripcion
-        FROM clases c
-        JOIN usuarios u ON c.docente_id = u.id
+        FROM clases c JOIN usuarios u ON c.docente_id = u.id
         WHERE c.es_publica = 1
     '''
     params = []
-    
-    if fecha:
-        query += ' AND date(c.fecha_grabacion) = ?'
-        params.append(fecha)
-    if docente:
-        query += ' AND u.nombre LIKE ?'
-        params.append(f'%{docente}%')
-    if materia:
-        query += ' AND c.materia LIKE ?'
-        params.append(f'%{materia}%')
-    
+    if fecha:    query += ' AND date(c.fecha_grabacion) = ?'; params.append(fecha)
+    if docente:  query += ' AND u.nombre LIKE ?'; params.append(f'%{docente}%')
+    if materia:  query += ' AND c.materia LIKE ?'; params.append(f'%{materia}%')
     query += ' ORDER BY c.fecha_grabacion DESC LIMIT 50'
-    
+
     with get_db() as conn:
         clases = conn.execute(query, params).fetchall()
-        return jsonify([dict(clase) for clase in clases])
+    return jsonify([dict(c) for c in clases])
 
 @app.route('/api/clase/<int:clase_id>', methods=['GET'])
 def get_clase(clase_id):
-    """Obtener una clase específica"""
     with get_db() as conn:
-        # Verificar si es pública o si el usuario es el dueño
         clase = conn.execute('''
             SELECT c.*, u.nombre as docente_nombre
-            FROM clases c
-            JOIN usuarios u ON c.docente_id = u.id
+            FROM clases c JOIN usuarios u ON c.docente_id = u.id
             WHERE c.id = ? AND (c.es_publica = 1 OR c.docente_id = ?)
         ''', (clase_id, current_user.id if current_user.is_authenticated else -1)).fetchone()
-        
-        if clase:
-            tags = conn.execute(
-                'SELECT tag FROM tags WHERE clase_id = ?', (clase_id,)
-            ).fetchall()
-            
-            clase_dict = dict(clase)
-            clase_dict['tags'] = [tag['tag'] for tag in tags]
-            return jsonify(clase_dict)
-        
-        return jsonify({'error': 'Clase no encontrada o acceso denegado'}), 404
+
+        if not clase:
+            return jsonify({'error': 'Clase no encontrada o acceso denegado'}), 404
+
+        tags = conn.execute('SELECT tag FROM tags WHERE clase_id = ?', (clase_id,)).fetchall()
+        clase_dict = dict(clase)
+        clase_dict['tags'] = [t['tag'] for t in tags]
+        return jsonify(clase_dict)
 
 @app.route('/api/clase/<int:clase_id>', methods=['DELETE'])
 @login_required
 @docente_required
 def delete_clase(clase_id):
-    """Eliminar una clase (solo el docente dueño)"""
     with get_db() as conn:
-        clase = conn.execute(
-            'SELECT archivo_audio, docente_id FROM clases WHERE id = ?', (clase_id,)
-        ).fetchone()
-        
+        clase = conn.execute('SELECT archivo_audio, docente_id FROM clases WHERE id = ?', (clase_id,)).fetchone()
         if not clase:
             return jsonify({'error': 'Clase no encontrada'}), 404
-        
         if clase['docente_id'] != current_user.id:
-            return jsonify({'error': 'No tienes permiso para eliminar esta clase'}), 403
-        
+            return jsonify({'error': 'Sin permiso'}), 403
         if clase['archivo_audio']:
-            try:
-                os.remove(clase['archivo_audio'])
-            except:
-                pass
-        
+            try: os.remove(clase['archivo_audio'])
+            except: pass
         conn.execute('DELETE FROM clases WHERE id = ?', (clase_id,))
         conn.execute('DELETE FROM tags WHERE clase_id = ?', (clase_id,))
         conn.commit()
-        
-        return jsonify({'success': True})
+    return jsonify({'success': True})
 
 @app.route('/api/clase/<int:clase_id>/toggle-public', methods=['POST'])
 @login_required
 @docente_required
 def toggle_public(clase_id):
-    """Cambiar visibilidad pública de una clase"""
     with get_db() as conn:
-        clase = conn.execute(
-            'SELECT docente_id, es_publica FROM clases WHERE id = ?', (clase_id,)
-        ).fetchone()
-        
+        clase = conn.execute('SELECT docente_id, es_publica FROM clases WHERE id = ?', (clase_id,)).fetchone()
         if not clase or clase['docente_id'] != current_user.id:
             return jsonify({'error': 'No autorizado'}), 403
-        
-        nuevo_estado = not clase['es_publica']
-        conn.execute(
-            'UPDATE clases SET es_publica = ? WHERE id = ?',
-            (nuevo_estado, clase_id)
-        )
+        nuevo = not clase['es_publica']
+        conn.execute('UPDATE clases SET es_publica = ? WHERE id = ?', (nuevo, clase_id))
         conn.commit()
-        
-        return jsonify({'success': True, 'es_publica': nuevo_estado})
+    return jsonify({'success': True, 'es_publica': nuevo})
 
-@app.route('/api/upload', methods=['POST'])
-def upload_file():
-    """Procesar audio - para docentes guarda, para invitados es temporal"""
-    try:
-        if 'audio' not in request.files:
-            return jsonify({'error': 'No se encontró archivo de audio'}), 400
-        
-        file = request.files['audio']
-        titulo = request.form.get('titulo', 'Clase sin título')
-        materia = request.form.get('materia', '')
-        notas = request.form.get('notas', '')
-        tags_str = request.form.get('tags', '')
-        es_publica = request.form.get('es_publica', 'true') == 'true'
-        
-        if file.filename == '':
-            return jsonify({'error': 'No se seleccionó archivo'}), 400
-        
-        print(f"📁 Archivo recibido: {file.filename}")
-        print(f"👤 Usuario: {'Docente' if current_user.is_authenticated else 'Invitado'}")
-        
-        if file and allowed_file(file.filename):
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"clase_{timestamp}.wav"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            
-            print(f"💾 Guardando en: {filepath}")
-            file.save(filepath)
-            
-            try:
-                # Transcribir audio
-                print("🎤 Iniciando transcripción...")
-                transcript = transcribe_audio(filepath)
-                print(f"✓ Transcripción completada: {len(transcript)} caracteres")
-                
-                # Crear resumen
-                print("🤖 Generando resumen con Llama 3...")
-                summary = summarize_with_llama(transcript)
-                print(f"✓ Resumen completado: {len(summary)} caracteres")
-                
-                # Si es docente, guardar en BD
-                if current_user.is_authenticated and current_user.rol == 'docente':
-                    with get_db() as conn:
-                        cursor = conn.execute('''
-                            INSERT INTO clases 
-                            (docente_id, titulo, archivo_audio, transcripcion, resumen, materia, notas, es_publica)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ''', (current_user.id, titulo, filepath, transcript, summary, materia, notas, es_publica))
-                        
-                        clase_id = cursor.lastrowid
-                        
-                        if tags_str:
-                            tags = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
-                            for tag in tags:
-                                conn.execute(
-                                    'INSERT INTO tags (clase_id, tag) VALUES (?, ?)',
-                                    (clase_id, tag)
-                                )
-                        
-                        conn.commit()
-                    
-                    print(f"✓ Clase guardada con ID: {clase_id}")
-                    return jsonify({
-                        'success': True,
-                        'clase_id': clase_id,
-                        'transcript': transcript,
-                        'summary': summary,
-                        'saved': True
-                    })
-                else:
-                    # Invitado - no guardar, solo devolver resultado
-                    print("🗑️ Eliminando archivo temporal (invitado)")
-                    os.remove(filepath)
-                    return jsonify({
-                        'success': True,
-                        'transcript': transcript,
-                        'summary': summary,
-                        'saved': False,
-                        'message': 'Transcripción temporal (no guardada)'
-                    })
-            
-            except Exception as e:
-                print(f"❌ Error procesando audio: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                return jsonify({'error': f'Error procesando audio: {str(e)}'}), 500
-        
-        return jsonify({'error': 'Formato de archivo no permitido'}), 400
-    
-    except Exception as e:
-        print(f"❌ Error general en upload: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'Error del servidor: {str(e)}'}), 500
+# ── Favoritos (estudiante) ────────────────────────────────────────────────────
+
+@app.route('/api/favoritos/<int:clase_id>', methods=['POST'])
+@login_required
+@estudiante_required
+def toggle_favorito(clase_id):
+    with get_db() as conn:
+        fav = conn.execute(
+            'SELECT id FROM favoritos WHERE estudiante_id = ? AND clase_id = ?',
+            (current_user.id, clase_id)
+        ).fetchone()
+        if fav:
+            conn.execute('DELETE FROM favoritos WHERE id = ?', (fav['id'],))
+            conn.commit()
+            return jsonify({'favorito': False})
+        else:
+            conn.execute('INSERT INTO favoritos (estudiante_id, clase_id) VALUES (?, ?)',
+                         (current_user.id, clase_id))
+            conn.commit()
+            return jsonify({'favorito': True})
+
+# ── Estadísticas (docente) ────────────────────────────────────────────────────
 
 @app.route('/api/estadisticas', methods=['GET'])
 @login_required
 @docente_required
-def estadisticas():
-    """Obtener estadísticas del docente"""
+def get_estadisticas():
     with get_db() as conn:
-        stats = {
-            'total_clases': conn.execute(
-                'SELECT COUNT(*) as count FROM clases WHERE docente_id = ?',
-                (current_user.id,)
-            ).fetchone()['count'],
-            'clases_publicas': conn.execute(
-                'SELECT COUNT(*) as count FROM clases WHERE docente_id = ? AND es_publica = 1',
-                (current_user.id,)
-            ).fetchone()['count'],
-            'total_horas': conn.execute(
-                'SELECT SUM(duracion_segundos) / 3600.0 as horas FROM clases WHERE docente_id = ?',
-                (current_user.id,)
-            ).fetchone()['horas'] or 0,
-            'clases_por_materia': {}
-        }
-        
+        row = conn.execute('''
+            SELECT COUNT(*) as total_clases,
+                   SUM(CASE WHEN es_publica=1 THEN 1 ELSE 0 END) as clases_publicas,
+                   COALESCE(SUM(duracion_segundos)/3600.0, 0) as total_horas
+            FROM clases WHERE docente_id = ?
+        ''', (current_user.id,)).fetchone()
+
         materias = conn.execute('''
-            SELECT materia, COUNT(*) as count 
-            FROM clases 
-            WHERE docente_id = ? AND materia != ''
+            SELECT materia, COUNT(*) as count
+            FROM clases WHERE docente_id = ? AND materia != ''
             GROUP BY materia
         ''', (current_user.id,)).fetchall()
-        
-        for m in materias:
-            stats['clases_por_materia'][m['materia']] = m['count']
-        
-        return jsonify(stats)
+
+    return jsonify({
+        'total_clases':   row['total_clases'],
+        'clases_publicas': row['clases_publicas'],
+        'total_horas':    round(row['total_horas'], 1),
+        'clases_por_materia': {m['materia']: m['count'] for m in materias}
+    })
+
+# ════════════════════════════════════════════════════════════════════
+#   INICIO
+# ════════════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
     init_db()

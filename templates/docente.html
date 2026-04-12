@@ -1,908 +1,199 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Docente - EduTranscribe</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f6fa;
-            min-height: 100vh;
-        }
-
-        .navbar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .navbar-brand {
-            font-size: 1.5em;
-            font-weight: bold;
-        }
-
-        .navbar-user {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .btn-logout {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-logout:hover {
-            background: rgba(255,255,255,0.3);
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #e0e0e0;
-            background: white;
-            padding: 0 20px;
-            border-radius: 10px 10px 0 0;
-        }
-
-        .tab {
-            padding: 18px 30px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            color: #666;
-            border-bottom: 3px solid transparent;
-            transition: all 0.3s;
-            font-weight: 600;
-        }
-
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-        }
-
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .card {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            margin-bottom: 30px;
-        }
-
-        .card h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.8em;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .controls {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 15px 30px;
-            font-size: 16px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-
-        .btn-record {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .btn-record.recording {
-            background: #27ae60;
-            animation: pulse 2s infinite;
-        }
-
-        .btn-secondary {
-            background: #95a5a6;
-            color: white;
-        }
-
-        .btn-delete {
-            background: #e74c3c;
-            color: white;
-            padding: 8px 15px;
-            font-size: 14px;
-        }
-
-        .btn-small {
-            padding: 8px 15px;
-            font-size: 14px;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        .timer {
-            font-size: 2em;
-            font-weight: bold;
-            color: #e74c3c;
-            margin: 20px 0;
-            font-family: 'Courier New', monospace;
-            text-align: center;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-
-        .status {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            display: block;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            display: block;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            display: block;
-        }
-
-        .loader {
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #667eea;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-            display: none;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .processing-text {
-            text-align: center;
-            color: #666;
-            margin-top: 10px;
-            font-style: italic;
-        }
-
-        .results {
-            margin-top: 30px;
-        }
-
-        .result-box {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            border-left: 4px solid #667eea;
-        }
-
-        .result-box h3 {
-            color: #333;
-            margin-bottom: 15px;
-            font-size: 1.5em;
-        }
-
-        .result-content {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            line-height: 1.8;
-            color: #333;
-        }
-
-        .clases-grid {
-            display: grid;
-            gap: 20px;
-        }
-
-        .clase-card {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 12px;
-            border-left: 4px solid #667eea;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .clase-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        }
-
-        .clase-card h3 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 1.3em;
-        }
-
-        .clase-meta {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 15px;
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .clase-preview {
-            color: #777;
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 15px;
-        }
-
-        .clase-actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .badge-public {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .badge-private {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            overflow-y: auto;
-        }
-
-        .modal-content {
-            background: white;
-            max-width: 900px;
-            margin: 50px auto;
-            padding: 40px;
-            border-radius: 15px;
-            position: relative;
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 30px;
-            cursor: pointer;
-            color: #999;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-        }
-
-        .stat-number {
-            font-size: 3em;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .stat-label {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #999;
-        }
-
-        .empty-state-icon {
-            font-size: 4em;
-            margin-bottom: 20px;
-        }
-
-        @media (max-width: 768px) {
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-            
-            .navbar {
-                flex-direction: column;
-                gap: 15px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="navbar-brand">🎓 EduTranscribe</div>
-        <div class="navbar-user">
-            <span>👨‍🏫 {{ nombre }}</span>
-            <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
-        </div>
+{% extends "base.html" %}
+{% block title %}Panel Docente — EduTranscribe{% endblock %}
+
+{% block content %}
+<div class="dash-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar sidebar-doc">
+    <div class="sidebar-logo">
+      <div class="nav-logo-mark">
+        <svg viewBox="0 0 18 18" fill="none"><path d="M2 9h2M5 5h2M5 13h2M9 3h2M9 15h2M13 6h2M13 12h2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </div>
+      <span class="sidebar-logo-text">EduTranscribe</span>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar sidebar-avatar-doc">{{ nombre[:2].upper() }}</div>
+      <div>
+        <div class="sidebar-user-name">{{ nombre }}</div>
+        <div class="sidebar-user-role sidebar-role-doc">Docente</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="sidebar-nav-section">Principal</span>
+      <a class="sidebar-nav-item active-doc" href="{{ url_for('docente_dashboard') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Resumen
+      </a>
+      <a class="sidebar-nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        Nueva clase
+      </a>
+      <span class="sidebar-nav-section">Gestión</span>
+      <a class="sidebar-nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        Mis clases
+      </a>
+      <a class="sidebar-nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        Estadísticas
+      </a>
+      <span class="sidebar-nav-section">Cuenta</span>
+      <a class="sidebar-nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Perfil
+      </a>
     </nav>
+    <div class="sidebar-footer">
+      <form method="POST" action="{{ url_for('api_logout') }}" style="margin:0;">
+        <button type="submit" class="sidebar-nav-item" style="color:rgba(246,241,231,.5);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Cerrar sesión
+        </button>
+      </form>
+    </div>
+  </aside>
 
-    <div class="container">
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('nueva')">➕ Nueva Clase</button>
-            <button class="tab" onclick="showTab('biblioteca')">📚 Mis Clases</button>
-            <button class="tab" onclick="showTab('stats')">📊 Estadísticas</button>
-        </div>
-
-        <!-- TAB: Nueva Clase -->
-        <div id="tab-nueva" class="tab-content active">
-            <div class="card">
-                <h2>🎤 Grabar Nueva Clase</h2>
-                <div class="controls">
-                    <button id="recordBtn" class="btn btn-record" onclick="toggleRecording()">
-                        🔴 Iniciar Grabación
-                    </button>
-                    <button id="stopBtn" class="btn btn-secondary" onclick="stopRecording()" disabled>
-                        ⏹️ Detener
-                    </button>
-                </div>
-                <div class="timer" id="timer">00:00:00</div>
-            </div>
-
-            <div class="card">
-                <h2>📁 O Sube un Archivo de Audio</h2>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Título de la clase *</label>
-                        <input type="text" id="titulo" placeholder="Ej: Cálculo Integral - Tema 5">
-                    </div>
-                    <div class="form-group">
-                        <label>Materia</label>
-                        <input type="text" id="materia" placeholder="Ej: Matemáticas">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Tags (separados por comas)</label>
-                    <input type="text" id="tags" placeholder="Ej: integrales, derivadas, examen">
-                </div>
-
-                <div class="form-group">
-                    <label>Notas adicionales</label>
-                    <textarea id="notas" rows="3" placeholder="Notas personales sobre la clase..."></textarea>
-                </div>
-
-                <div class="form-group checkbox-group">
-                    <input type="checkbox" id="esPublica" checked>
-                    <label for="esPublica" style="margin: 0;">Hacer esta clase pública (visible para invitados)</label>
-                </div>
-
-                <div class="form-group">
-                    <label>Archivo de audio *</label>
-                    <input type="file" id="fileInput" accept="audio/*" onchange="handleFileSelect()">
-                </div>
-
-                <button id="uploadBtn" class="btn btn-primary" onclick="uploadFile()" style="display: none;">
-                    Procesar Audio
-                </button>
-            </div>
-
-            <div id="status" class="status"></div>
-            
-            <div class="loader" id="loader"></div>
-            <p class="processing-text" id="processingText" style="display: none;"></p>
-
-            <div id="results" class="results" style="display: none;">
-                <div class="result-box">
-                    <h3>📝 Transcripción Completa</h3>
-                    <div id="transcript" class="result-content"></div>
-                </div>
-                <div class="result-box">
-                    <h3>📚 Resumen para Estudio</h3>
-                    <div id="summary" class="result-content"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB: Biblioteca -->
-        <div id="tab-biblioteca" class="tab-content">
-            <div class="card">
-                <h2>📚 Mis Clases Guardadas</h2>
-                <div id="clasesList" class="clases-grid"></div>
-            </div>
-        </div>
-
-        <!-- TAB: Estadísticas -->
-        <div id="tab-stats" class="tab-content">
-            <div class="card">
-                <h2>📊 Mis Estadísticas</h2>
-                <div class="stats-grid" id="statsGrid"></div>
-            </div>
-        </div>
+  <!-- Main content -->
+  <main class="dash-main dash-main-doc">
+    <div class="dash-topbar">
+      <span class="dash-topbar-title">Panel docente</span>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="btn btn-primary" style="font-size:13px; padding:9px 18px;">+ Nueva clase</button>
+      </div>
     </div>
 
-    <!-- Modal para ver clase completa -->
-    <div id="claseModal" class="modal">
-        <div class="modal-content">
-            <span class="modal-close" onclick="closeModal()">&times;</span>
-            <div id="modalContent"></div>
+    <div class="dash-content">
+
+      <!-- Welcome banner -->
+      <div class="dash-welcome dash-welcome-doc">
+        <div class="dash-welcome-grid"></div>
+        <div class="dash-welcome-text">
+          <div class="dash-welcome-eyebrow">Buenos días</div>
+          <h2 class="dash-welcome-title">Bienvenido, {{ nombre.split()[0] }} 👋</h2>
+          <p class="dash-welcome-sub">
+            {% if total_clases > 0 %}
+              Tienes {{ total_clases }} clase{{ 's' if total_clases != 1 else '' }} guardada{{ 's' if total_clases != 1 else '' }}.
+            {% else %}
+              Empieza subiendo tu primer audio de clase.
+            {% endif %}
+          </p>
         </div>
+        <div class="dash-welcome-action">
+          <a href="#" class="btn btn-gold">Subir primera clase →</a>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="dash-stats">
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-card-label">Clases totales</span>
+            <div class="stat-card-icon" style="background:#E8F5EF;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6E52" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+            </div>
+          </div>
+          <div class="stat-card-value">{{ total_clases }}</div>
+          <div class="stat-card-change">{% if total_clases == 0 %}Sin clases aún{% else %}Total acumulado{% endif %}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-card-label">Clases públicas</span>
+            <div class="stat-card-icon" style="background:#E8EEF9;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+            </div>
+          </div>
+          <div class="stat-card-value">{{ clases_publicas }}</div>
+          <div class="stat-card-change">Visibles para estudiantes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-card-label">Horas procesadas</span>
+            <div class="stat-card-icon" style="background:#FBF3E0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+          </div>
+          <div class="stat-card-value">{{ "%.1f"|format(total_horas) }}h</div>
+          <div class="stat-card-change">Audio transcrito</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-card-label">Materias</span>
+            <div class="stat-card-icon" style="background:#F9E8EC;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#993556" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+            </div>
+          </div>
+          <div class="stat-card-value">{{ total_materias }}</div>
+          <div class="stat-card-change">Categorías creadas</div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <h3 class="dash-section-title">Acciones rápidas</h3>
+      <div class="quick-actions">
+        <div class="action-card">
+          <div class="action-icon">🎤</div>
+          <div class="action-title">Grabar clase</div>
+          <div class="action-desc">Graba directamente desde el navegador y procesa en tiempo real.</div>
+          <span class="badge-coming">Próximamente</span>
+        </div>
+        <div class="action-card">
+          <div class="action-icon">📁</div>
+          <div class="action-title">Subir audio</div>
+          <div class="action-desc">Sube archivos MP3, WAV, M4A u otros formatos de audio.</div>
+          <span class="badge-coming">Próximamente</span>
+        </div>
+        <div class="action-card">
+          <div class="action-icon">📚</div>
+          <div class="action-title">Mi biblioteca</div>
+          <div class="action-desc">Gestiona todas tus clases guardadas y organiza por materia.</div>
+          <span class="badge-coming">Próximamente</span>
+        </div>
+      </div>
+
+      <!-- Recent classes -->
+      <h3 class="dash-section-title">Clases recientes</h3>
+      <div class="classes-table">
+        <div class="classes-table-header">
+          <span class="classes-table-title">Historial</span>
+          <button class="btn btn-outline" style="font-size:13px; padding:7px 16px;">Ver todas</button>
+        </div>
+        {% if clases_recientes %}
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th>Materia</th>
+              <th>Fecha</th>
+              <th>Visibilidad</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for clase in clases_recientes %}
+            <tr>
+              <td><strong>{{ clase.titulo }}</strong></td>
+              <td>{{ clase.materia or '—' }}</td>
+              <td>{{ clase.fecha_grabacion[:10] }}</td>
+              <td>
+                <span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700;
+                  {% if clase.es_publica %}background:#E8F5EF; color:#0D3B2E;{% else %}background:#F5F5F3; color:#6B6B62;{% endif %}">
+                  {{ 'Pública' if clase.es_publica else 'Privada' }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="table-empty">
+          <div class="table-empty-icon">📭</div>
+          <p style="font-size:15px; font-weight:600; color:var(--ink-2); margin-bottom:8px;">Aún no hay clases</p>
+          <p style="font-size:14px;">Sube tu primer audio para comenzar</p>
+        </div>
+        {% endif %}
+      </div>
+
     </div>
-
-    <script>
-        let mediaRecorder;
-        let audioChunks = [];
-        let timerInterval;
-        let seconds = 0;
-        let selectedFile;
-
-        // Cargar biblioteca al inicio
-        loadBiblioteca();
-        loadEstadisticas();
-
-        function showTab(tabName) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            
-            event.target.classList.add('active');
-            document.getElementById('tab-' + tabName).classList.add('active');
-
-            if (tabName === 'biblioteca') loadBiblioteca();
-            if (tabName === 'stats') loadEstadisticas();
-        }
-
-        async function loadBiblioteca() {
-            try {
-                const response = await fetch('/api/clases');
-                const clases = await response.json();
-                
-                const list = document.getElementById('clasesList');
-                if (clases.length === 0) {
-                    list.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">📭</div>
-                            <h3>No hay clases guardadas aún</h3>
-                            <p>Graba tu primera clase para comenzar</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                list.innerHTML = clases.map(clase => `
-                    <div class="clase-card" onclick="viewClase(${clase.id})">
-                        <h3>${clase.titulo}</h3>
-                        <div class="clase-meta">
-                            <span>📅 ${new Date(clase.fecha_grabacion).toLocaleDateString('es-ES')}</span>
-                            ${clase.materia ? '<span>📖 ' + clase.materia + '</span>' : ''}
-                            <span class="badge ${clase.es_publica ? 'badge-public' : 'badge-private'}">
-                                ${clase.es_publica ? '🌐 Pública' : '🔒 Privada'}
-                            </span>
-                        </div>
-                        <div class="clase-preview">${clase.preview_transcripcion || ''}...</div>
-                        <div class="clase-actions" onclick="event.stopPropagation()">
-                            <button class="btn btn-small btn-primary" onclick="togglePublic(${clase.id}, ${clase.es_publica})">
-                                ${clase.es_publica ? '🔒 Hacer Privada' : '🌐 Hacer Pública'}
-                            </button>
-                            <button class="btn btn-small btn-delete" onclick="deleteClase(${clase.id})">
-                                🗑️ Eliminar
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (err) {
-                console.error('Error cargando biblioteca:', err);
-            }
-        }
-
-        async function viewClase(id) {
-            try {
-                const response = await fetch(`/api/clase/${id}`);
-                const clase = await response.json();
-                
-                document.getElementById('modalContent').innerHTML = `
-                    <h2>${clase.titulo}</h2>
-                    <p style="color: #666; margin-bottom: 20px;">
-                        📅 ${new Date(clase.fecha_grabacion).toLocaleDateString('es-ES')}
-                        ${clase.materia ? ' | 📖 ' + clase.materia : ''}
-                    </p>
-                    ${clase.notas ? `<div class="result-box"><h3>📝 Notas</h3><div class="result-content">${clase.notas}</div></div>` : ''}
-                    <div class="result-box">
-                        <h3>📝 Transcripción</h3>
-                        <div class="result-content">${clase.transcripcion}</div>
-                    </div>
-                    <div class="result-box">
-                        <h3>📚 Resumen</h3>
-                        <div class="result-content">${clase.resumen}</div>
-                    </div>
-                `;
-                
-                document.getElementById('claseModal').style.display = 'block';
-            } catch (err) {
-                alert('Error al cargar la clase');
-            }
-        }
-
-        async function deleteClase(id) {
-            if (!confirm('¿Estás seguro de eliminar esta clase?')) return;
-            
-            try {
-                await fetch(`/api/clase/${id}`, { method: 'DELETE' });
-                loadBiblioteca();
-                showStatus('Clase eliminada exitosamente', 'success');
-            } catch (err) {
-                showStatus('Error al eliminar la clase', 'error');
-            }
-        }
-
-        async function togglePublic(id, isPublic) {
-            try {
-                const response = await fetch(`/api/clase/${id}/toggle-public`, { method: 'POST' });
-                const data = await response.json();
-                if (data.success) {
-                    loadBiblioteca();
-                    showStatus(`Clase ${data.es_publica ? 'pública' : 'privada'} exitosamente`, 'success');
-                }
-            } catch (err) {
-                showStatus('Error al cambiar visibilidad', 'error');
-            }
-        }
-
-        function closeModal() {
-            document.getElementById('claseModal').style.display = 'none';
-        }
-
-        async function loadEstadisticas() {
-            try {
-                const response = await fetch('/api/estadisticas');
-                const stats = await response.json();
-                
-                let materiasHTML = '';
-                for (const [materia, count] of Object.entries(stats.clases_por_materia)) {
-                    materiasHTML += `<div class="stat-card"><div class="stat-number">${count}</div><div class="stat-label">${materia}</div></div>`;
-                }
-                
-                document.getElementById('statsGrid').innerHTML = `
-                    <div class="stat-card">
-                        <div class="stat-number">${stats.total_clases}</div>
-                        <div class="stat-label">Clases Grabadas</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${stats.clases_publicas}</div>
-                        <div class="stat-label">Clases Públicas</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${stats.total_horas.toFixed(1)}</div>
-                        <div class="stat-label">Horas de Clase</div>
-                    </div>
-                    ${materiasHTML}
-                `;
-            } catch (err) {
-                console.error('Error cargando estadísticas:', err);
-            }
-        }
-
-        async function logout() {
-            await fetch('/api/logout', { method: 'POST' });
-            window.location.href = '/';
-        }
-
-        function toggleRecording() {
-            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-                startRecording();
-            }
-        }
-
-        async function startRecording() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-
-                mediaRecorder.ondataavailable = (event) => {
-                    audioChunks.push(event.data);
-                };
-
-                mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    await processAudio(audioBlob);
-                };
-
-                mediaRecorder.start();
-                
-                document.getElementById('recordBtn').classList.add('recording');
-                document.getElementById('recordBtn').innerHTML = '⏺️ Grabando...';
-                document.getElementById('stopBtn').disabled = false;
-                
-                startTimer();
-                showStatus('Grabando clase...', 'info');
-            } catch (err) {
-                showStatus('Error al acceder al micrófono: ' + err.message, 'error');
-            }
-        }
-
-        function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                
-                document.getElementById('recordBtn').classList.remove('recording');
-                document.getElementById('recordBtn').innerHTML = '🔴 Iniciar Grabación';
-                document.getElementById('stopBtn').disabled = true;
-                
-                stopTimer();
-            }
-        }
-
-        function startTimer() {
-            seconds = 0;
-            updateTimer();
-            timerInterval = setInterval(() => {
-                seconds++;
-                updateTimer();
-            }, 1000);
-        }
-
-        function stopTimer() {
-            clearInterval(timerInterval);
-        }
-
-        function updateTimer() {
-            const hrs = Math.floor(seconds / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-            document.getElementById('timer').textContent = 
-                `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-        }
-
-        function handleFileSelect() {
-            selectedFile = document.getElementById('fileInput').files[0];
-            if (selectedFile) {
-                document.getElementById('uploadBtn').style.display = 'block';
-            }
-        }
-
-        async function uploadFile() {
-            if (!selectedFile) return;
-            
-            const titulo = document.getElementById('titulo').value || 'Clase sin título';
-            const materia = document.getElementById('materia').value;
-            const tags = document.getElementById('tags').value;
-            const notas = document.getElementById('notas').value;
-            const esPublica = document.getElementById('esPublica').checked;
-            
-            const formData = new FormData();
-            formData.append('audio', selectedFile);
-            formData.append('titulo', titulo);
-            formData.append('materia', materia);
-            formData.append('tags', tags);
-            formData.append('notas', notas);
-            formData.append('es_publica', esPublica);
-            
-            showStatus('Procesando audio...', 'info');
-            showLoader('Transcribiendo con Whisper...');
-            
-            try {
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const data = await response.json();
-                
-                hideLoader();
-                
-                if (data.success) {
-                    showStatus('¡Clase guardada exitosamente!', 'success');
-                    displayResults(data.transcript, data.summary);
-                    
-                    // Limpiar formulario
-                    document.getElementById('titulo').value = '';
-                    document.getElementById('materia').value = '';
-                    document.getElementById('tags').value = '';
-                    document.getElementById('notas').value = '';
-                    document.getElementById('fileInput').value = '';
-                    document.getElementById('uploadBtn').style.display = 'none';
-                    selectedFile = null;
-                    
-                    loadBiblioteca();
-                } else {
-                    showStatus('Error: ' + data.error, 'error');
-                }
-            } catch (err) {
-                hideLoader();
-                showStatus('Error: ' + err.message, 'error');
-            }
-        }
-
-        async function processAudio(audioBlob) {
-            const titulo = document.getElementById('titulo').value || 'Grabación ' + new Date().toLocaleString('es-ES');
-            const formData = new FormData();
-            formData.append('audio', audioBlob, 'recording.wav');
-            formData.append('titulo', titulo);
-            formData.append('materia', document.getElementById('materia').value);
-            formData.append('tags', document.getElementById('tags').value);
-            formData.append('notas', document.getElementById('notas').value);
-            formData.append('es_publica', document.getElementById('esPublica').checked);
-            
-            showLoader('Transcribiendo...');
-            
-            try {
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const data = await response.json();
-                
-                hideLoader();
-                
-                if (data.success) {
-                    showStatus('¡Clase guardada!', 'success');
-                    displayResults(data.transcript, data.summary);
-                    loadBiblioteca();
-                } else {
-                    showStatus('Error: ' + data.error, 'error');
-                }
-            } catch (err) {
-                hideLoader();
-                showStatus('Error: ' + err.message, 'error');
-            }
-        }
-
-        function showStatus(message, type) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = 'status ' + type;
-        }
-
-        function showLoader(message) {
-            document.getElementById('loader').style.display = 'block';
-            document.getElementById('processingText').textContent = message;
-            document.getElementById('processingText').style.display = 'block';
-        }
-
-        function hideLoader() {
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('processingText').style.display = 'none';
-        }
-
-        function displayResults(transcript, summary) {
-            document.getElementById('transcript').textContent = transcript;
-            document.getElementById('summary').textContent = summary;
-            document.getElementById('results').style.display = 'block';
-        }
-    </script>
-</body>
-</html>
+  </main>
+</div>
+{% endblock %}
