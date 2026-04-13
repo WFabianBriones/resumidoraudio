@@ -196,55 +196,8 @@ canvas#waveform {
 {% block content %}
 <div class="dash-layout">
 
-  <!-- Sidebar -->
-  <aside class="sidebar sidebar-doc">
-    <div class="sidebar-logo">
-      <div class="nav-logo-mark">
-        <svg viewBox="0 0 18 18" fill="none"><path d="M2 9h2M5 5h2M5 13h2M9 3h2M9 15h2M13 6h2M13 12h2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </div>
-      <span class="sidebar-logo-text">EduTranscribe</span>
-    </div>
-    <div class="sidebar-user">
-      <div class="sidebar-avatar sidebar-avatar-doc">{{ nombre[:2].upper() }}</div>
-      <div>
-        <div class="sidebar-user-name">{{ nombre }}</div>
-        <div class="sidebar-user-role sidebar-role-doc">Docente</div>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <span class="sidebar-nav-section">Principal</span>
-      <a class="sidebar-nav-item" href="{{ url_for('docente_dashboard') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Resumen
-      </a>
-      <a class="sidebar-nav-item active-doc" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-        Nueva clase
-      </a>
-      <span class="sidebar-nav-section">Gestión</span>
-      <a class="sidebar-nav-item" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-        Mis clases
-      </a>
-      <a class="sidebar-nav-item" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
-        Estadísticas
-      </a>
-      <span class="sidebar-nav-section">Cuenta</span>
-      <a class="sidebar-nav-item" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        Perfil
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <form method="POST" action="{{ url_for('api_logout') }}" style="margin:0;">
-        <button type="submit" class="sidebar-nav-item" style="color:rgba(246,241,231,.5);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Cerrar sesión
-        </button>
-      </form>
-    </div>
-  </aside>
+  {% set active = 'nueva' %}
+  {% include '_sidebar_docente.html' %}
 
   <!-- Main -->
   <main class="dash-main dash-main-doc">
@@ -1000,7 +953,7 @@ function renderClases(list) {
   }
 
   container.innerHTML = list.map(c => `
-    <div class="clase-card">
+    <div class="clase-card" onclick="window.location.href='/clase/${c.id}'" style="cursor:pointer;">
       <div class="clase-card-icon">🎓</div>
       <div class="clase-card-body">
         <div class="clase-card-title">${c.titulo}</div>
@@ -1010,12 +963,15 @@ function renderClases(list) {
           <span class="pub-badge ${c.es_publica ? 'pub-badge-yes' : 'pub-badge-no'}">${c.es_publica ? 'Pública' : 'Privada'}</span>
         </div>
       </div>
-      <div class="clase-card-actions">
+      <div class="clase-card-actions" onclick="event.stopPropagation()">
+        <button class="icon-btn" onclick="window.location.href='/clase/${c.id}'" title="Ver y compartir" style="color:var(--forest);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </button>
         <button class="icon-btn" onclick="togglePublic(${c.id})" title="Cambiar visibilidad">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
         </button>
         <button class="icon-btn" onclick="deleteClase(${c.id})" title="Eliminar" style="color:var(--danger)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
         </button>
       </div>
     </div>
@@ -1054,5 +1010,15 @@ function showTabByName(name) {
   const idx  = tabs.indexOf(name);
   if (idx >= 0) showTab(name, btns[idx]);
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+  const openTab = sessionStorage.getItem('openTab');
+  if (openTab) {
+    sessionStorage.removeItem('openTab');
+    showTabByName(openTab);
+  } else if (location.hash === '#biblioteca') {
+    showTabByName('biblioteca');
+  }
+});
 </script>
 {% endblock %}

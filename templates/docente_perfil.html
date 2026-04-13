@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Mi Perfil — EduTranscribe{% endblock %}
+
+{% block content %}
+<div class="dash-layout">
+
+  {% set active = 'perfil' %}
+  {% include '_sidebar_docente.html' %}
+
+  <main class="dash-main dash-main-doc">
+    <div class="dash-topbar">
+      <span class="dash-topbar-title">Mi perfil</span>
+    </div>
+
+    <div class="dash-content" style="max-width:600px;">
+
+      <!-- Avatar -->
+      <div style="background:var(--white);border-radius:var(--radius-xl);border:1px solid var(--cream-2);padding:32px;margin-bottom:24px;display:flex;align-items:center;gap:24px;">
+        <div style="width:72px;height:72px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:28px;font-weight:700;color:white;flex-shrink:0;">
+          {{ nombre[:2].upper() }}
+        </div>
+        <div>
+          <div style="font-family:var(--serif);font-size:22px;font-weight:600;color:var(--ink);margin-bottom:4px;">{{ nombre }}</div>
+          <div style="font-size:13px;color:var(--ink-3);">{{ email }}</div>
+          <div style="margin-top:8px;">
+            <span style="display:inline-block;background:#E8F5EF;color:#0D3B2E;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.04em;text-transform:uppercase;">Docente</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulario -->
+      <div style="background:var(--white);border-radius:var(--radius-xl);border:1px solid var(--cream-2);padding:32px;">
+        <h3 style="font-family:var(--serif);font-size:20px;font-weight:600;color:var(--ink);margin-bottom:24px;">Editar información</h3>
+
+        <div class="alert alert-error"   id="perfilAlert"></div>
+        <div class="alert alert-success" id="perfilSuccess"></div>
+
+        <form class="auth-form" id="perfilForm">
+
+          <div class="form-group">
+            <label>Nombre completo</label>
+            <input type="text" class="form-input" id="pNombre" value="{{ nombre }}" required>
+          </div>
+
+          <div class="form-group">
+            <label>Correo electrónico</label>
+            <input type="email" class="form-input" value="{{ email }}" disabled
+              style="background:var(--cream);color:var(--ink-3);cursor:not-allowed;">
+            <span style="font-size:11px;color:var(--ink-3);margin-top:4px;display:block;">El correo no se puede cambiar</span>
+          </div>
+
+          <div class="form-group">
+            <label>Institución</label>
+            <input type="text" class="form-input" id="pInstitucion" value="{{ institucion }}" placeholder="Ej: ULEAM El Carmen">
+          </div>
+
+          <div style="border-top:1px solid var(--cream-2);padding-top:20px;margin-top:8px;">
+            <div style="font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:16px;">
+              Cambiar contraseña <span style="font-weight:400;color:var(--ink-3)">(opcional)</span>
+            </div>
+            <div class="form-group">
+              <label>Nueva contraseña</label>
+              <input type="password" class="form-input" id="pPassword"
+                placeholder="Mínimo 8 caracteres"
+                oninput="updatePassStrength(this.value)">
+              <div class="pass-strength">
+                <div class="pass-bar" id="pbar1"></div>
+                <div class="pass-bar" id="pbar2"></div>
+                <div class="pass-bar" id="pbar3"></div>
+                <div class="pass-bar" id="pbar4"></div>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg" id="perfilBtn">Guardar cambios</button>
+
+        </form>
+      </div>
+
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updatePassStrength(val) {
+  const bars = ['pbar1','pbar2','pbar3','pbar4'];
+  bars.forEach(b => document.getElementById(b).className = 'pass-bar');
+  let s = 0;
+  if (val.length >= 8)  s++;
+  if (val.length >= 12) s++;
+  if (/[A-Z]/.test(val) && /[0-9]/.test(val)) s++;
+  if (/[^A-Za-z0-9]/.test(val)) s++;
+  const cls = s <= 1 ? 'weak' : s <= 2 ? 'medium' : 'strong';
+  for (let i = 0; i < Math.min(s + 1, 4); i++)
+    document.getElementById(bars[i]).className = `pass-bar ${cls}`;
+}
+
+document.getElementById('perfilForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn      = document.getElementById('perfilBtn');
+  const alertErr = document.getElementById('perfilAlert');
+  const alertOk  = document.getElementById('perfilSuccess');
+
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  alertErr.classList.remove('show');
+  alertOk.classList.remove('show');
+
+  const payload = {
+    nombre:      document.getElementById('pNombre').value.trim(),
+    institucion: document.getElementById('pInstitucion').value.trim(),
+    password:    document.getElementById('pPassword').value,
+  };
+
+  const res  = await fetch('/api/perfil', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  if (data.success) {
+    alertOk.textContent = 'Perfil actualizado correctamente';
+    alertOk.classList.add('show');
+    showToast('Perfil actualizado', 'success');
+    document.getElementById('pPassword').value = '';
+    ['pbar1','pbar2','pbar3','pbar4'].forEach(b =>
+      document.getElementById(b).className = 'pass-bar'
+    );
+  } else {
+    alertErr.textContent = data.error || 'Error al guardar';
+    alertErr.classList.add('show');
+  }
+
+  btn.disabled    = false;
+  btn.textContent = 'Guardar cambios';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}{{ clase.titulo }} — EduTranscribe{% endblock %}
+
+{% block extra_css %}
+<style>
+.viewer-layout { display: flex; min-height: 100vh; background: var(--cream); }
+
+/* ── Top bar ── */
+.viewer-topbar {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--white); border-bottom: 1px solid var(--cream-2);
+  padding: 0 32px; height: 64px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.viewer-back {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 600; color: var(--forest);
+  text-decoration: none; padding: 8px 12px; border-radius: var(--radius);
+  transition: background .2s;
+}
+.viewer-back:hover { background: var(--cream); }
+.viewer-back svg { width: 16px; height: 16px; }
+.viewer-title {
+  font-family: var(--serif); font-size: 18px; font-weight: 600;
+  color: var(--ink); flex: 1; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.viewer-actions { display: flex; gap: 8px; }
+
+/* ── Main layout ── */
+.viewer-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+
+.viewer-pane {
+  background: var(--white); border-right: 1px solid var(--cream-2);
+  display: flex; flex-direction: column; height: calc(100vh - 64px);
+  position: sticky; top: 64px;
+}
+.viewer-pane:last-child { border-right: none; }
+
+.pane-header {
+  padding: 20px 28px; border-bottom: 1px solid var(--cream-2);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--cream); flex-shrink: 0;
+}
+.pane-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: var(--ink-2); letter-spacing: .03em;
+}
+.pane-actions { display: flex; gap: 6px; }
+.pane-btn {
+  display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
+  color: var(--ink-3); background: none; border: 1px solid var(--cream-3);
+  border-radius: var(--radius); padding: 5px 10px; cursor: pointer; transition: all .2s;
+}
+.pane-btn:hover { background: var(--white); color: var(--forest); border-color: var(--forest-3); }
+.pane-btn svg { width: 12px; height: 12px; }
+
+.pane-body {
+  flex: 1; overflow-y: auto; padding: 28px;
+  font-size: 15px; line-height: 1.8; color: var(--ink-2);
+}
+
+/* Summary markdown styling */
+.pane-body h2 {
+  font-family: var(--serif); font-size: 18px; font-weight: 600;
+  color: var(--forest); margin: 24px 0 10px; letter-spacing: -.01em;
+  padding-bottom: 6px; border-bottom: 1px solid var(--cream-2);
+}
+.pane-body h2:first-child { margin-top: 0; }
+.pane-body p { margin-bottom: 10px; }
+
+/* ── Meta panel ── */
+.meta-bar {
+  background: var(--cream); border-bottom: 1px solid var(--cream-2);
+  padding: 16px 32px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+}
+.meta-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-3); }
+.meta-item strong { color: var(--ink-2); font-weight: 600; }
+.meta-badge {
+  display: inline-block; padding: 2px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+}
+.meta-badge-pub  { background: #E8F5EF; color: #0D3B2E; }
+.meta-badge-priv { background: var(--cream-2); color: var(--ink-3); }
+
+/* ── Share modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal-box {
+  background: var(--white); border-radius: var(--radius-xl);
+  padding: 36px; width: 100%; max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  transform: translateY(12px); transition: transform .2s;
+}
+.modal-overlay.open .modal-box { transform: translateY(0); }
+.modal-title {
+  font-family: var(--serif); font-size: 22px; font-weight: 600;
+  color: var(--ink); margin-bottom: 6px;
+}
+.modal-sub { font-size: 14px; color: var(--ink-3); margin-bottom: 24px; }
+.link-row {
+  display: flex; gap: 8px; align-items: center;
+  background: var(--cream); border-radius: var(--radius); padding: 4px 4px 4px 14px;
+  border: 1px solid var(--cream-3);
+}
+.link-row input {
+  flex: 1; background: none; border: none; outline: none;
+  font-size: 13px; color: var(--ink-2); font-family: var(--sans);
+}
+.modal-note { font-size: 12px; color: var(--ink-3); margin-top: 12px; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .viewer-body { grid-template-columns: 1fr; }
+  .viewer-pane { height: auto; position: static; min-height: 400px; }
+  .meta-bar { padding: 12px 20px; gap: 12px; }
+  .viewer-topbar { padding: 0 16px; }
+  .pane-body { padding: 20px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="viewer-layout" style="flex-direction:column;">
+
+  <!-- Top bar -->
+  <div class="viewer-topbar">
+    <a href="{{ back_url }}" class="viewer-back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      Volver
+    </a>
+    <span class="viewer-title">{{ clase.titulo }}</span>
+    <div class="viewer-actions">
+      {% if es_docente %}
+      <button class="btn btn-outline" style="font-size:13px;padding:8px 16px;" onclick="openShareModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Compartir
+      </button>
+      <button class="btn btn-primary" style="font-size:13px;padding:8px 16px;"
+        onclick="togglePublic({{ clase.id }}, {{ 'true' if clase.es_publica else 'false' }})">
+        {{ '🌐 Pública' if clase.es_publica else '🔒 Privada' }}
+      </button>
+      {% else %}
+      <button class="btn btn-outline" style="font-size:13px;padding:8px 16px;" onclick="copyLink()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Compartir
+      </button>
+      <button class="btn {% if is_favorite %}btn-primary{% else %}btn-outline{% endif %}"
+        style="font-size:13px;padding:8px 16px;" id="favBtn" onclick="toggleFav({{ clase.id }})">
+        {{ '♥ Guardado' if is_favorite else '♡ Guardar' }}
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Meta bar -->
+  <div class="meta-bar">
+    <div class="meta-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <strong>{{ clase.docente_nombre }}</strong>
+    </div>
+    {% if clase.materia %}
+    <div class="meta-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+      <strong>{{ clase.materia }}</strong>
+    </div>
+    {% endif %}
+    <div class="meta-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      {{ clase.fecha_grabacion[:10] }}
+    </div>
+    {% if clase.duracion_segundos %}
+    <div class="meta-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      {{ (clase.duracion_segundos // 60) }} min
+    </div>
+    {% endif %}
+    <div class="meta-item">
+      <span class="meta-badge {{ 'meta-badge-pub' if clase.es_publica else 'meta-badge-priv' }}">
+        {{ 'Pública' if clase.es_publica else 'Privada' }}
+      </span>
+    </div>
+    {% if clase.tags %}
+    <div class="meta-item" style="gap:4px;flex-wrap:wrap;">
+      {% for tag in clase.tags %}
+      <span style="background:var(--cream-2);color:var(--ink-3);font-size:11px;padding:2px 8px;border-radius:20px;">{{ tag }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Content panes -->
+  <div class="viewer-body">
+    <!-- Transcripción -->
+    <div class="viewer-pane">
+      <div class="pane-header">
+        <div class="pane-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/></svg>
+          Transcripción completa
+        </div>
+        <div class="pane-actions">
+          <button class="pane-btn" onclick="copyPaneText('transcriptContent')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copiar
+          </button>
+        </div>
+      </div>
+      <div class="pane-body" id="transcriptContent">
+        {{ clase.transcripcion or 'Sin transcripción disponible.' }}
+      </div>
+    </div>
+
+    <!-- Resumen -->
+    <div class="viewer-pane">
+      <div class="pane-header">
+        <div class="pane-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h7M7 16h5"/></svg>
+          Resumen con IA
+        </div>
+        <div class="pane-actions">
+          <button class="pane-btn" onclick="copyPaneText('summaryContent')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copiar
+          </button>
+        </div>
+      </div>
+      <div class="pane-body" id="summaryContent">
+        {{ clase.resumen | safe if clase.resumen else 'Sin resumen disponible.' }}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Share modal (docente only) -->
+{% if es_docente %}
+<div class="modal-overlay" id="shareModal" onclick="closeModal(event)">
+  <div class="modal-box">
+    <h2 class="modal-title">Compartir clase</h2>
+    <p class="modal-sub">Cualquiera con este enlace puede ver la transcripción y el resumen.</p>
+    <div class="link-row">
+      <input type="text" id="shareLink" readonly
+        value="{{ request.host_url }}clase/{{ clase.id }}">
+      <button class="btn btn-primary" style="font-size:13px;padding:9px 16px;" onclick="copyShareLink()">
+        Copiar enlace
+      </button>
+    </div>
+    <p class="modal-note">
+      {% if clase.es_publica %}
+      ✅ Esta clase es <strong>pública</strong> — el enlace funciona para cualquier estudiante registrado.
+      {% else %}
+      ⚠️ Esta clase es <strong>privada</strong>. Actívala como pública para que el enlace funcione para otros.
+      {% endif %}
+    </p>
+    <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px;">
+      {% if not clase.es_publica %}
+      <button class="btn btn-outline" style="font-size:13px;"
+        onclick="togglePublic({{ clase.id }}, false); closeModal()">
+        Hacer pública
+      </button>
+      {% endif %}
+      <button class="btn btn-primary" style="font-size:13px;" onclick="closeModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyPaneText(id) {
+  const text = document.getElementById(id).innerText;
+  navigator.clipboard.writeText(text).then(() => showToast('Copiado al portapapeles', 'success'));
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href)
+    .then(() => showToast('Enlace copiado', 'success'));
+}
+
+{% if es_docente %}
+function openShareModal() {
+  document.getElementById('shareModal').classList.add('open');
+}
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('shareModal'))
+    document.getElementById('shareModal').classList.remove('open');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('shareModal').classList.remove('open');
+});
+function copyShareLink() {
+  const input = document.getElementById('shareLink');
+  navigator.clipboard.writeText(input.value).then(() => showToast('Enlace copiado', 'success'));
+}
+
+async function togglePublic(id, currentState) {
+  const res  = await fetch(`/api/clase/${id}/toggle-public`, { method: 'POST' });
+  const data = await res.json();
+  if (data.success) {
+    showToast(data.es_publica ? 'Clase marcada como pública' : 'Clase marcada como privada', 'success');
+    setTimeout(() => location.reload(), 800);
+  }
+}
+{% else %}
+async function toggleFav(id) {
+  const res  = await fetch(`/api/favoritos/${id}`, { method: 'POST' });
+  const data = await res.json();
+  const btn  = document.getElementById('favBtn');
+  if (data.favorito) {
+    btn.textContent = '♥ Guardado';
+    btn.className   = 'btn btn-primary';
+    showToast('Guardado en favoritos', 'success');
+  } else {
+    btn.textContent = '♡ Guardar';
+    btn.className   = 'btn btn-outline';
+    showToast('Eliminado de favoritos', 'success');
+  }
+}
+{% endif %}
+</script>
+{% endblock %}

@@ -828,6 +828,86 @@ def toggle_favorito(clase_id):
 #  INICIO  ← siempre al final
 # ════════════════════════════════════════════════════════════════════
 
+# ════════════════════════════════════════════════════════════════════
+# PEGAR ESTAS RUTAS EN app.py ANTES DEL if __name__ == '__main__':
+# ════════════════════════════════════════════════════════════════════
+
+# ── Visor de clase (docente preview + estudiante) ─────────────────
+
+@app.route('/clase/<int:clase_id>')
+@login_required
+def ver_clase(clase_id):
+    """Página de visor completo: transcripción + resumen."""
+    with get_db() as conn:
+        clase = conn.execute('''
+            SELECT c.*, u.nombre as docente_nombre
+            FROM clases c JOIN usuarios u ON c.docente_id = u.id
+            WHERE c.id = ? AND (c.es_publica = 1 OR c.docente_id = ?)
+        ''', (clase_id, current_user.id)).fetchone()
+
+        if not clase:
+            return "Clase no encontrada o acceso denegado", 404
+
+        tags = conn.execute(
+            'SELECT tag FROM tags WHERE clase_id = ?', (clase_id,)
+        ).fetchall()
+
+        is_favorite = False
+        if current_user.rol == 'estudiante':
+            fav = conn.execute(
+                'SELECT id FROM favoritos WHERE estudiante_id = ? AND clase_id = ?',
+                (current_user.id, clase_id)
+            ).fetchone()
+            is_favorite = fav is not None
+
+    clase_dict = dict(clase)
+    clase_dict['tags'] = [t['tag'] for t in tags]
+
+    es_docente = current_user.rol == 'docente' and clase['docente_id'] == current_user.id
+
+    if es_docente:
+        back_url = url_for('docente_nueva_clase') + '#biblioteca'
+    else:
+        back_url = url_for('estudiante_buscar')
+
+    return render_template('clase_ver.html',
+        clase       = clase_dict,
+        es_docente  = es_docente,
+        is_favorite = is_favorite,
+        back_url    = back_url
+    )
+
+# ── Búsqueda de clases para estudiantes ──────────────────────────
+
+@app.route('/estudiante/buscar')
+@login_required
+def estudiante_buscar():
+    if current_user.rol != 'estudiante':
+        return redirect(url_for('docente_dashboard'))
+    return render_template('estudiante_buscar.html', nombre=current_user.nombre)
+
+# ── Favoritos del estudiante ──────────────────────────────────────
+
+@app.route('/estudiante/favoritos')
+@login_required
+def estudiante_favoritos():
+    if current_user.rol != 'estudiante':
+        return redirect(url_for('docente_dashboard'))
+    with get_db() as conn:
+        clases = conn.execute('''
+            SELECT c.id, c.titulo, c.fecha_grabacion, c.materia,
+                   u.nombre as docente_nombre
+            FROM favoritos f
+            JOIN clases c ON f.clase_id = c.id
+            JOIN usuarios u ON c.docente_id = u.id
+            WHERE f.estudiante_id = ?
+            ORDER BY f.created_at DESC
+        ''', (current_user.id,)).fetchall()
+    return render_template('estudiante_favoritos.html',
+        nombre = current_user.nombre,
+        clases = clases
+    )
+
 if __name__ == '__main__':
     init_db()
     print("✓ Base de datos inicializada")
