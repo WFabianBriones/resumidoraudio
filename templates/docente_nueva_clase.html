@@ -1,0 +1,1058 @@
+{% extends "base.html" %}
+{% block title %}Panel Docente — EduTranscribe{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Tab system ── */
+.tabs { display: flex; gap: 4px; padding: 4px; background: var(--cream-2); border-radius: var(--radius-lg); margin-bottom: 28px; width: fit-content; }
+.tab-btn {
+  padding: 9px 20px; border-radius: var(--radius); font-size: 13px; font-weight: 600;
+  background: none; border: none; cursor: pointer; color: var(--ink-3);
+  transition: all .2s; white-space: nowrap;
+}
+.tab-btn.active { background: var(--white); color: var(--forest); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn .25s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── Recording card ── */
+.rec-card {
+  background: var(--white); border-radius: var(--radius-xl);
+  border: 1px solid var(--cream-2); overflow: hidden;
+}
+
+/* Stage indicator */
+.stage-bar {
+  display: flex; border-bottom: 1px solid var(--cream-2);
+  background: var(--cream);
+}
+.stage {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--ink-3);
+  border-right: 1px solid var(--cream-2); position: relative;
+  transition: all .3s;
+}
+.stage:last-child { border-right: none; }
+.stage-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cream-3); transition: background .3s; }
+.stage.active   { color: var(--forest);  background: #EFF6F3; }
+.stage.active .stage-dot { background: var(--forest-3); box-shadow: 0 0 0 3px rgba(28,110,82,.2); animation: stagePulse 1.5s infinite; }
+.stage.done     { color: var(--forest-2); }
+.stage.done .stage-dot { background: var(--forest-2); }
+@keyframes stagePulse { 0%,100%{box-shadow:0 0 0 3px rgba(28,110,82,.2)} 50%{box-shadow:0 0 0 6px rgba(28,110,82,.08)} }
+
+/* Waveform */
+.waveform-area {
+  padding: 24px 32px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+}
+.waveform-wrap { flex: 1; position: relative; }
+canvas#waveform {
+  width: 100%; height: 72px; border-radius: var(--radius);
+  background: var(--forest); display: block;
+}
+.waveform-idle {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: rgba(246,241,231,.4); font-size: 13px; pointer-events: none;
+}
+.rec-controls { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
+.rec-timer {
+  font-family: var(--serif); font-size: 28px; font-weight: 700; color: var(--ink);
+  letter-spacing: .06em; min-width: 90px; text-align: center;
+}
+.rec-timer.running { color: var(--danger); }
+
+.btn-record {
+  width: 64px; height: 64px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--danger); color: white; transition: all .2s;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(192,57,43,.35);
+}
+.btn-record:hover { transform: scale(1.06); box-shadow: 0 6px 20px rgba(192,57,43,.45); }
+.btn-record.recording { background: #E8E8E8; box-shadow: none; }
+.btn-record.recording:hover { background: #D5D5D5; transform: scale(1.06); }
+.btn-record svg { width: 24px; height: 24px; transition: all .2s; }
+
+.rec-hint { font-size: 11px; color: var(--ink-3); text-align: center; }
+
+/* Form inside card */
+.rec-form { padding: 0 32px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.rec-form .form-group { grid-column: auto; }
+.rec-form .full { grid-column: 1 / -1; }
+
+/* Results area — transcripción + resumen */
+.results-area { padding: 0 32px 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.result-pane {
+  border-radius: var(--radius-lg); overflow: hidden;
+  border: 1px solid var(--cream-2);
+}
+.result-pane-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--cream-2);
+  background: var(--cream);
+}
+.result-pane-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: var(--ink-2); letter-spacing: .02em;
+}
+.result-pane-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.badge-live   { background: #FDECEA; color: var(--danger); }
+.badge-ai     { background: #E8F5EF; color: var(--forest-2); }
+.badge-wait   { background: var(--cream-3); color: var(--ink-3); }
+.badge-done   { background: #E8F5EF; color: var(--forest-2); }
+
+.result-pane-body {
+  padding: 18px; min-height: 200px; max-height: 340px;
+  overflow-y: auto; font-size: 14px; line-height: 1.75; color: var(--ink-2);
+  background: var(--white);
+  scroll-behavior: smooth;
+}
+.result-pane-body:empty::before {
+  content: attr(data-placeholder); color: var(--ink-3); font-style: italic; font-size: 13px;
+}
+
+/* Typing cursor */
+.typing-cursor {
+  display: inline-block; width: 2px; height: 14px;
+  background: var(--forest-3); margin-left: 2px; vertical-align: middle;
+  animation: blink .8s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* Summary markdown-style */
+.result-pane-body h2 {
+  font-family: var(--serif); font-size: 16px; font-weight: 600;
+  color: var(--forest); margin: 14px 0 6px; letter-spacing: -.01em;
+}
+.result-pane-body h2:first-child { margin-top: 0; }
+.result-pane-body p { margin-bottom: 8px; }
+
+/* Save panel */
+.save-panel {
+  margin: 0 32px 32px; padding: 24px; border-radius: var(--radius-lg);
+  background: #EFF6F3; border: 1px solid #B8DDD0;
+  display: none; gap: 16px; align-items: center; flex-wrap: wrap;
+}
+.save-panel.show { display: flex; }
+.save-panel-text { flex: 1; }
+.save-panel-title { font-size: 15px; font-weight: 600; color: var(--forest); margin-bottom: 4px; }
+.save-panel-sub { font-size: 13px; color: var(--forest-2); }
+
+/* Upload tab */
+.upload-zone {
+  border: 2px dashed var(--cream-3); border-radius: var(--radius-lg);
+  padding: 48px 24px; text-align: center; cursor: pointer; transition: all .2s;
+  background: var(--cream);
+}
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--forest-3); background: #EFF6F3; }
+.upload-zone-icon { font-size: 36px; margin-bottom: 12px; opacity: .6; }
+.upload-zone-text { font-size: 15px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+.upload-zone-sub { font-size: 13px; color: var(--ink-3); }
+.upload-zone-file { font-size: 13px; color: var(--forest-3); font-weight: 600; margin-top: 10px; }
+
+/* Progress bar */
+.progress-wrap { margin-top: 16px; }
+.progress-label { font-size: 12px; font-weight: 600; color: var(--ink-3); margin-bottom: 6px; display: flex; justify-content: space-between; }
+.progress-bar-bg { height: 6px; background: var(--cream-2); border-radius: 3px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--forest-3); border-radius: 3px; transition: width .4s ease; width: 0%; }
+
+/* Biblioteca */
+.library-filters { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.filter-input { flex: 1; min-width: 160px; padding: 9px 14px; font-size: 14px; font-family: var(--sans); border: 1.5px solid var(--cream-3); border-radius: var(--radius); outline: none; color: var(--ink); background: var(--white); }
+.filter-input:focus { border-color: var(--forest-3); box-shadow: 0 0 0 3px rgba(28,110,82,.1); }
+
+.clase-card {
+  background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--cream-2);
+  padding: 20px 24px; display: flex; align-items: center; gap: 16px;
+  transition: all .2s; cursor: pointer; margin-bottom: 10px;
+}
+.clase-card:hover { box-shadow: 0 4px 16px rgba(13,59,46,.08); border-color: var(--forest-3); transform: translateY(-1px); }
+.clase-card-icon {
+  width: 44px; height: 44px; border-radius: var(--radius); background: var(--cream-2);
+  display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+}
+.clase-card-body { flex: 1; min-width: 0; }
+.clase-card-title { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clase-card-meta { font-size: 12px; color: var(--ink-3); display: flex; gap: 12px; flex-wrap: wrap; }
+.clase-card-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.icon-btn {
+  width: 32px; height: 32px; border-radius: var(--radius); border: 1px solid var(--cream-3);
+  background: var(--white); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all .2s; color: var(--ink-3);
+}
+.icon-btn:hover { background: var(--cream); border-color: var(--forest-3); color: var(--forest); }
+.icon-btn svg { width: 14px; height: 14px; }
+
+.pub-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; }
+.pub-badge-yes { background: #E8F5EF; color: #0D3B2E; }
+.pub-badge-no  { background: var(--cream-2); color: var(--ink-3); }
+.empty-lib { text-align: center; padding: 64px 20px; color: var(--ink-3); }
+.empty-lib-icon { font-size: 40px; margin-bottom: 16px; opacity: .35; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar sidebar-doc">
+    <div class="sidebar-logo">
+      <div class="nav-logo-mark">
+        <svg viewBox="0 0 18 18" fill="none"><path d="M2 9h2M5 5h2M5 13h2M9 3h2M9 15h2M13 6h2M13 12h2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </div>
+      <span class="sidebar-logo-text">EduTranscribe</span>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar sidebar-avatar-doc">{{ nombre[:2].upper() }}</div>
+      <div>
+        <div class="sidebar-user-name">{{ nombre }}</div>
+        <div class="sidebar-user-role sidebar-role-doc">Docente</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="sidebar-nav-section">Principal</span>
+      <a class="sidebar-nav-item" href="{{ url_for('docente_dashboard') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Resumen
+      </a>
+      <a class="sidebar-nav-item active-doc" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        Nueva clase
+      </a>
+      <span class="sidebar-nav-section">Gestión</span>
+      <a class="sidebar-nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        Mis clases
+      </a>
+      <a class="sidebar-nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        Estadísticas
+      </a>
+      <span class="sidebar-nav-section">Cuenta</span>
+      <a class="sidebar-nav-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Perfil
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <form method="POST" action="{{ url_for('api_logout') }}" style="margin:0;">
+        <button type="submit" class="sidebar-nav-item" style="color:rgba(246,241,231,.5);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Cerrar sesión
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="dash-main dash-main-doc">
+    <div class="dash-topbar">
+      <span class="dash-topbar-title">Nueva clase</span>
+    </div>
+
+    <div class="dash-content">
+
+      <!-- Tab selector -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('grabar', this)">🎤 Grabar clase</button>
+        <button class="tab-btn" onclick="showTab('subir', this)">📁 Subir audio</button>
+        <button class="tab-btn" onclick="showTab('biblioteca', this)">📚 Mis clases</button>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           TAB 1: GRABAR EN VIVO
+      ══════════════════════════════════════ -->
+      <div class="tab-panel active" id="tab-grabar">
+        <div class="rec-card">
+
+          <!-- Stage bar -->
+          <div class="stage-bar">
+            <div class="stage active" id="stage-rec"><div class="stage-dot"></div>Grabando</div>
+            <div class="stage"       id="stage-tr" ><div class="stage-dot"></div>Transcribiendo</div>
+            <div class="stage"       id="stage-sum"><div class="stage-dot"></div>Generando resumen</div>
+            <div class="stage"       id="stage-done"><div class="stage-dot"></div>Listo</div>
+          </div>
+
+          <!-- Waveform + controls -->
+          <div class="waveform-area">
+            <div class="waveform-wrap">
+              <canvas id="waveform" width="800" height="72"></canvas>
+              <div class="waveform-idle" id="waveformIdle">Presiona grabar para comenzar</div>
+            </div>
+            <div class="rec-controls">
+              <div class="rec-timer" id="recTimer">00:00</div>
+              <button class="btn-record" id="recBtn" onclick="toggleRecording()" title="Iniciar / Detener grabación">
+                <!-- Icono mic -->
+                <svg id="recIcon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round">
+                  <path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/>
+                  <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+              </button>
+              <span class="rec-hint" id="recHint">Clic para grabar</span>
+            </div>
+          </div>
+
+          <!-- Metadata form -->
+          <div class="rec-form">
+            <div class="form-group">
+              <label>Título de la clase *</label>
+              <input type="text" class="form-input" id="recTitulo" placeholder="Ej: Álgebra lineal — Matrices">
+            </div>
+            <div class="form-group">
+              <label>Materia</label>
+              <input type="text" class="form-input" id="recMateria" placeholder="Ej: Matemáticas">
+            </div>
+            <div class="form-group">
+              <label>Tags (separados por comas)</label>
+              <input type="text" class="form-input" id="recTags" placeholder="Ej: matrices, eigenvalores">
+            </div>
+            <div class="form-group" style="display:flex; align-items:center; gap:10px; padding-top:28px;">
+              <input type="checkbox" id="recPublica" checked style="width:16px;height:16px;accent-color:var(--forest);">
+              <label for="recPublica" style="font-size:13px;color:var(--ink-2);cursor:pointer;">Hacer esta clase pública para estudiantes</label>
+            </div>
+          </div>
+
+          <!-- Live results -->
+          <div class="results-area" id="recResults">
+            <div class="result-pane">
+              <div class="result-pane-header">
+                <div class="result-pane-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/></svg>
+                  Transcripción en vivo
+                </div>
+                <span class="result-pane-badge badge-wait" id="transcriptBadge">En espera</span>
+              </div>
+              <div class="result-pane-body" id="transcriptBody"
+                data-placeholder="La transcripción aparecerá aquí mientras grabas…"></div>
+            </div>
+            <div class="result-pane">
+              <div class="result-pane-header">
+                <div class="result-pane-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h7M7 16h5"/></svg>
+                  Resumen con IA
+                </div>
+                <span class="result-pane-badge badge-wait" id="summaryBadge">En espera</span>
+              </div>
+              <div class="result-pane-body" id="summaryBody"
+                data-placeholder="El resumen se generará cuando termines de grabar…"></div>
+            </div>
+          </div>
+
+          <!-- Save panel -->
+          <div class="save-panel" id="savePanel">
+            <div class="save-panel-text">
+              <div class="save-panel-title">✓ Clase lista para guardar</div>
+              <div class="save-panel-sub">La transcripción y el resumen están completos.</div>
+            </div>
+            <button class="btn btn-outline" onclick="discardClass()" style="font-size:13px;">Descartar</button>
+            <button class="btn btn-primary" onclick="saveClass()" style="font-size:13px;">Guardar clase →</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           TAB 2: SUBIR AUDIO
+      ══════════════════════════════════════ -->
+      <div class="tab-panel" id="tab-subir">
+        <div class="rec-card" style="padding:32px;">
+
+          <!-- Upload zone -->
+          <div class="upload-zone" id="uploadZone"
+            onclick="document.getElementById('audioFileInput').click()"
+            ondragover="event.preventDefault(); this.classList.add('dragover')"
+            ondragleave="this.classList.remove('dragover')"
+            ondrop="handleFileDrop(event)">
+            <div class="upload-zone-icon">🎧</div>
+            <div class="upload-zone-text">Arrastra un archivo de audio aquí</div>
+            <div class="upload-zone-sub">o haz clic para seleccionar · MP3, WAV, M4A, OGG (max 500 MB)</div>
+            <div class="upload-zone-file" id="uploadFileName"></div>
+          </div>
+          <input type="file" id="audioFileInput" accept="audio/*" style="display:none" onchange="handleFileSelect(this)">
+
+          <!-- Metadata -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:24px;">
+            <div class="form-group">
+              <label>Título de la clase *</label>
+              <input type="text" class="form-input" id="upTitulo" placeholder="Ej: Química Orgánica — Esteres">
+            </div>
+            <div class="form-group">
+              <label>Materia</label>
+              <input type="text" class="form-input" id="upMateria" placeholder="Ej: Química">
+            </div>
+            <div class="form-group">
+              <label>Tags</label>
+              <input type="text" class="form-input" id="upTags" placeholder="separados por comas">
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:28px;">
+              <input type="checkbox" id="upPublica" checked style="width:16px;height:16px;accent-color:var(--forest);">
+              <label for="upPublica" style="font-size:13px;color:var(--ink-2);cursor:pointer;">Hacer pública para estudiantes</label>
+            </div>
+          </div>
+
+          <!-- Progress -->
+          <div class="progress-wrap" id="upProgress" style="display:none;">
+            <div class="progress-label">
+              <span id="upProgressLabel">Transcribiendo con Whisper…</span>
+              <span id="upProgressPct">—</span>
+            </div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="upProgressBar"></div></div>
+          </div>
+
+          <div style="margin-top:20px; display:flex; gap:12px; align-items:center;">
+            <button class="btn btn-primary" id="upProcessBtn" onclick="processUpload()" disabled>
+              Procesar audio
+            </button>
+            <span id="upStatus" style="font-size:13px; color:var(--ink-3);"></span>
+          </div>
+
+          <!-- Results for upload -->
+          <div class="results-area" id="upResults" style="display:none; margin-top:24px;">
+            <div class="result-pane">
+              <div class="result-pane-header">
+                <div class="result-pane-title">📝 Transcripción</div>
+                <div style="display:flex;gap:8px;">
+                  <button class="icon-btn" onclick="copyText('upTranscriptBody')" title="Copiar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="result-pane-body" id="upTranscriptBody" data-placeholder="La transcripción aparecerá aquí…"></div>
+            </div>
+            <div class="result-pane">
+              <div class="result-pane-header">
+                <div class="result-pane-title">📚 Resumen IA</div>
+                <div style="display:flex;gap:8px;">
+                  <button class="icon-btn" onclick="copyText('upSummaryBody')" title="Copiar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="result-pane-body" id="upSummaryBody" data-placeholder="El resumen aparecerá aquí…"></div>
+            </div>
+          </div>
+
+          <!-- Save after upload -->
+          <div class="save-panel" id="upSavePanel">
+            <div class="save-panel-text">
+              <div class="save-panel-title">✓ Procesado correctamente</div>
+              <div class="save-panel-sub">¿Deseas guardar esta clase en tu biblioteca?</div>
+            </div>
+            <button class="btn btn-outline" onclick="resetUpload()" style="font-size:13px;">Nueva subida</button>
+            <button class="btn btn-primary" onclick="saveUploadedClass()" style="font-size:13px;">Guardar clase →</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           TAB 3: BIBLIOTECA
+      ══════════════════════════════════════ -->
+      <div class="tab-panel" id="tab-biblioteca">
+        <div class="library-filters">
+          <input type="text" class="filter-input" placeholder="🔍  Buscar por título o materia…" oninput="filterClases(this.value)">
+        </div>
+        <div id="clasesContainer">
+          <div class="empty-lib">
+            <div class="empty-lib-icon">📭</div>
+            <p style="font-size:15px;font-weight:600;color:var(--ink-2);margin-bottom:8px;">Aún no hay clases guardadas</p>
+            <p style="font-size:13px;">Graba o sube tu primera clase para comenzar</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ════════════════════════════════════════════════
+//  SHARED STATE
+// ════════════════════════════════════════════════
+let mediaRecorder, audioStream, audioContext, analyser, animFrame;
+let isRecording   = false;
+let timerInterval = null;
+let elapsedSecs   = 0;
+let fullTranscript = '';
+let fullSummary    = '';
+let uploadedFile   = null;
+let upTranscript   = '';
+let upSummary      = '';
+let allClases      = [];
+
+// ════════════════════════════════════════════════
+//  TAB ROUTER
+// ════════════════════════════════════════════════
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'biblioteca') loadBiblioteca();
+}
+
+// ════════════════════════════════════════════════
+//  STAGE BAR
+// ════════════════════════════════════════════════
+function setStage(stage) {
+  // stage: 'rec' | 'tr' | 'sum' | 'done'
+  const order = ['rec', 'tr', 'sum', 'done'];
+  const idx   = order.indexOf(stage);
+  order.forEach((s, i) => {
+    const el = document.getElementById('stage-' + s);
+    el.className = 'stage';
+    if (i < idx)  el.classList.add('done');
+    if (i === idx) el.classList.add('active');
+  });
+}
+
+// ════════════════════════════════════════════════
+//  WAVEFORM VISUALIZER
+// ════════════════════════════════════════════════
+function startWaveform(stream) {
+  const canvas  = document.getElementById('waveform');
+  const ctx     = canvas.getContext('2d');
+  audioContext  = new (window.AudioContext || window.webkitAudioContext)();
+  analyser      = audioContext.createAnalyser();
+  analyser.fftSize = 256;
+  audioContext.createMediaStreamSource(stream).connect(analyser);
+
+  const bufLen = analyser.frequencyBinCount;
+  const dataArr = new Uint8Array(bufLen);
+  const W = canvas.width, H = canvas.height;
+
+  document.getElementById('waveformIdle').style.display = 'none';
+
+  function draw() {
+    animFrame = requestAnimationFrame(draw);
+    analyser.getByteTimeDomainData(dataArr);
+
+    ctx.fillStyle = '#0D3B2E';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.lineWidth   = 2;
+    ctx.strokeStyle = '#C8973A';
+    ctx.beginPath();
+
+    const sliceW = W / bufLen;
+    let x = 0;
+    for (let i = 0; i < bufLen; i++) {
+      const v = dataArr[i] / 128;
+      const y = (v * H) / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceW;
+    }
+    ctx.lineTo(W, H / 2);
+    ctx.stroke();
+  }
+  draw();
+}
+
+function stopWaveform() {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  if (audioContext) audioContext.close();
+  const canvas = document.getElementById('waveform');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0D3B2E';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  document.getElementById('waveformIdle').style.display = 'flex';
+}
+
+// ════════════════════════════════════════════════
+//  TIMER
+// ════════════════════════════════════════════════
+function startTimer() {
+  elapsedSecs = 0;
+  const el = document.getElementById('recTimer');
+  el.classList.add('running');
+  timerInterval = setInterval(() => {
+    elapsedSecs++;
+    const m = String(Math.floor(elapsedSecs / 60)).padStart(2, '0');
+    const s = String(elapsedSecs % 60).padStart(2, '0');
+    el.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  document.getElementById('recTimer').classList.remove('running');
+}
+
+// ════════════════════════════════════════════════
+//  RECORDING — chunk-based real-time transcription
+// ════════════════════════════════════════════════
+const CHUNK_INTERVAL_MS = 8000; // cada 8 segundos
+
+async function toggleRecording() {
+  if (!isRecording) await startRecording();
+  else              await stopRecording();
+}
+
+async function startRecording() {
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch (e) {
+    showToast('No se pudo acceder al micrófono: ' + e.message, 'error');
+    return;
+  }
+
+  // Reset state
+  fullTranscript = '';
+  fullSummary    = '';
+  document.getElementById('transcriptBody').innerHTML = '';
+  document.getElementById('summaryBody').innerHTML   = '';
+  document.getElementById('savePanel').classList.remove('show');
+  document.getElementById('transcriptBadge').className = 'result-pane-badge badge-live';
+  document.getElementById('transcriptBadge').textContent = '● En vivo';
+  document.getElementById('summaryBadge').className = 'result-pane-badge badge-wait';
+  document.getElementById('summaryBadge').textContent = 'En espera';
+
+  isRecording = true;
+  setStage('rec');
+  startTimer();
+  startWaveform(audioStream);
+
+  // Update button
+  const btn = document.getElementById('recBtn');
+  btn.classList.add('recording');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="white" width="22" height="22"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+  document.getElementById('recHint').textContent = 'Clic para detener';
+
+  // MediaRecorder with timeslice for real-time chunks
+  const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+  mediaRecorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : {});
+
+  mediaRecorder.ondataavailable = async (e) => {
+    if (e.data && e.data.size > 1000) {  // Ignore tiny empty chunks
+      await transcribeChunk(e.data);
+    }
+  };
+
+  mediaRecorder.start(CHUNK_INTERVAL_MS);
+}
+
+async function stopRecording() {
+  isRecording = false;
+  stopTimer();
+  stopWaveform();
+
+  mediaRecorder.stop();
+  audioStream.getTracks().forEach(t => t.stop());
+
+  // Update button
+  const btn = document.getElementById('recBtn');
+  btn.classList.remove('recording');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`;
+  document.getElementById('recHint').textContent = 'Clic para grabar';
+
+  document.getElementById('transcriptBadge').className = 'result-pane-badge badge-done';
+  document.getElementById('transcriptBadge').textContent = 'Completado';
+
+  // Generate summary with streaming
+  await generateSummaryStream();
+}
+
+async function transcribeChunk(blob) {
+  setStage('tr');
+  const formData = new FormData();
+  formData.append('chunk', blob, 'chunk.webm');
+
+  try {
+    const res  = await fetch('/api/transcribe-chunk', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.success && data.text) {
+      fullTranscript += (fullTranscript ? ' ' : '') + data.text;
+      appendTranscriptText(data.text);
+    }
+  } catch (e) {
+    console.error('Chunk transcription error:', e);
+  }
+}
+
+function appendTranscriptText(text) {
+  const body = document.getElementById('transcriptBody');
+  // Animated word-by-word append
+  const words = text.trim().split(' ');
+  let i = 0;
+  const cursor = document.createElement('span');
+  cursor.className = 'typing-cursor';
+  body.appendChild(cursor);
+
+  function addWord() {
+    if (i >= words.length) { cursor.remove(); return; }
+    const word = document.createTextNode((i > 0 || body.textContent.length > 1 ? ' ' : '') + words[i]);
+    body.insertBefore(word, cursor);
+    body.scrollTop = body.scrollHeight;
+    i++;
+    setTimeout(addWord, 40);
+  }
+  addWord();
+}
+
+// ════════════════════════════════════════════════
+//  STREAMING SUMMARY (SSE)
+// ════════════════════════════════════════════════
+async function generateSummaryStream() {
+  if (!fullTranscript.trim()) return;
+
+  setStage('sum');
+  const summaryBody = document.getElementById('summaryBody');
+  summaryBody.innerHTML = '';
+  document.getElementById('summaryBadge').className = 'result-pane-badge badge-ai';
+  document.getElementById('summaryBadge').textContent = '✦ Generando…';
+
+  let rawText = '';
+  const cursor = document.createElement('span');
+  cursor.className = 'typing-cursor';
+  summaryBody.appendChild(cursor);
+
+  try {
+    const res = await fetch('/api/summary-stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: fullTranscript })
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (payload === '[DONE]') break;
+
+        try {
+          const obj = JSON.parse(payload);
+          if (obj.token) {
+            rawText += obj.token;
+            summaryBody.insertBefore(document.createTextNode(obj.token), cursor);
+            summaryBody.scrollTop = summaryBody.scrollHeight;
+          }
+        } catch {}
+      }
+    }
+  } catch (e) {
+    summaryBody.insertBefore(document.createTextNode('Error al generar resumen: ' + e.message), cursor);
+  }
+
+  cursor.remove();
+  fullSummary = rawText;
+
+  document.getElementById('summaryBadge').className = 'result-pane-badge badge-done';
+  document.getElementById('summaryBadge').textContent = 'Completo';
+
+  setStage('done');
+  document.getElementById('savePanel').classList.add('show');
+  showToast('Clase procesada correctamente', 'success');
+}
+
+// ════════════════════════════════════════════════
+//  GUARDAR CLASE (grabación en vivo)
+// ════════════════════════════════════════════════
+async function saveClass() {
+  const payload = {
+    titulo:            document.getElementById('recTitulo').value.trim() || 'Clase sin título',
+    materia:           document.getElementById('recMateria').value.trim(),
+    tags:              document.getElementById('recTags').value.trim(),
+    es_publica:        document.getElementById('recPublica').checked,
+    transcripcion:     fullTranscript,
+    resumen:           fullSummary,
+    duracion_segundos: elapsedSecs,
+  };
+
+  const res  = await fetch('/api/guardar-clase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  if (data.success) {
+    showToast('Clase guardada en tu biblioteca', 'success');
+    document.getElementById('savePanel').classList.remove('show');
+    resetGrabacion();
+    loadBiblioteca();
+    showTabByName('biblioteca');
+  } else {
+    showToast(data.error || 'Error al guardar', 'error');
+  }
+}
+
+function discardClass() {
+  if (!confirm('¿Descartar la clase? Se perderá la transcripción y el resumen.')) return;
+  resetGrabacion();
+}
+
+function resetGrabacion() {
+  fullTranscript = ''; fullSummary = '';
+  document.getElementById('transcriptBody').innerHTML = '';
+  document.getElementById('summaryBody').innerHTML   = '';
+  document.getElementById('recTimer').textContent = '00:00';
+  document.getElementById('transcriptBadge').className = 'result-pane-badge badge-wait';
+  document.getElementById('transcriptBadge').textContent = 'En espera';
+  document.getElementById('summaryBadge').className = 'result-pane-badge badge-wait';
+  document.getElementById('summaryBadge').textContent = 'En espera';
+  document.getElementById('savePanel').classList.remove('show');
+  setStage('rec');
+}
+
+// ════════════════════════════════════════════════
+//  UPLOAD TAB
+// ════════════════════════════════════════════════
+function handleFileSelect(input) {
+  uploadedFile = input.files[0];
+  if (!uploadedFile) return;
+  document.getElementById('uploadFileName').textContent = '📎 ' + uploadedFile.name;
+  document.getElementById('upProcessBtn').disabled = false;
+  document.getElementById('upStatus').textContent = '';
+}
+
+function handleFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  uploadedFile = file;
+  document.getElementById('uploadFileName').textContent = '📎 ' + file.name;
+  document.getElementById('upProcessBtn').disabled = false;
+}
+
+async function processUpload() {
+  if (!uploadedFile) return;
+
+  const btn = document.getElementById('upProcessBtn');
+  btn.disabled = true;
+  btn.textContent = 'Procesando…';
+
+  document.getElementById('upResults').style.display   = 'none';
+  document.getElementById('upSavePanel').classList.remove('show');
+  document.getElementById('upProgress').style.display  = 'block';
+  document.getElementById('upProgressBar').style.width = '0%';
+  document.getElementById('upProgressLabel').textContent = 'Transcribiendo con Whisper…';
+
+  // Fake progress bar for UX (Whisper doesn't report %)
+  let pct = 0;
+  const fakeProgress = setInterval(() => {
+    pct = Math.min(pct + Math.random() * 4, 88);
+    document.getElementById('upProgressBar').style.width = pct + '%';
+  }, 600);
+
+  // 1. Transcribe via existing /api/upload endpoint
+  const formData = new FormData();
+  formData.append('audio', uploadedFile);
+  formData.append('titulo', document.getElementById('upTitulo').value.trim() || 'Clase sin título');
+  formData.append('materia', document.getElementById('upMateria').value.trim());
+  formData.append('tags', document.getElementById('upTags').value.trim());
+  formData.append('es_publica', document.getElementById('upPublica').checked);
+
+  try {
+    // First: transcribe only (we'll stream summary separately)
+    const res  = await fetch('/api/transcribe-chunk', {
+      method: 'POST',
+      body: (() => { const f = new FormData(); f.append('chunk', uploadedFile); return f; })()
+    });
+    const data = await res.json();
+
+    clearInterval(fakeProgress);
+    document.getElementById('upProgressBar').style.width = '50%';
+
+    if (!data.success) throw new Error(data.error);
+    upTranscript = data.text;
+
+    // Show transcript
+    document.getElementById('upResults').style.display = 'grid';
+    document.getElementById('upTranscriptBody').textContent = upTranscript;
+
+    // 2. Stream summary
+    document.getElementById('upProgressLabel').textContent = 'Generando resumen con IA…';
+    await streamUploadSummary(upTranscript);
+
+    document.getElementById('upProgressBar').style.width = '100%';
+    setTimeout(() => { document.getElementById('upProgress').style.display = 'none'; }, 800);
+
+    document.getElementById('upSavePanel').classList.add('show');
+    btn.textContent = 'Procesar audio';
+    btn.disabled = false;
+    showToast('Audio procesado correctamente', 'success');
+
+  } catch (e) {
+    clearInterval(fakeProgress);
+    document.getElementById('upProgress').style.display = 'none';
+    document.getElementById('upStatus').textContent = 'Error: ' + e.message;
+    btn.textContent = 'Procesar audio';
+    btn.disabled = false;
+    showToast('Error al procesar audio', 'error');
+  }
+}
+
+async function streamUploadSummary(text) {
+  const body = document.getElementById('upSummaryBody');
+  body.innerHTML = '';
+  upSummary = '';
+  const cursor = document.createElement('span');
+  cursor.className = 'typing-cursor';
+  body.appendChild(cursor);
+
+  try {
+    const res = await fetch('/api/summary-stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const lines = decoder.decode(value).split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (payload === '[DONE]') break;
+        try {
+          const obj = JSON.parse(payload);
+          if (obj.token) {
+            upSummary += obj.token;
+            body.insertBefore(document.createTextNode(obj.token), cursor);
+            body.scrollTop = body.scrollHeight;
+            document.getElementById('upProgressBar').style.width =
+              Math.min(50 + (upSummary.length / 12), 98) + '%';
+          }
+        } catch {}
+      }
+    }
+  } catch(e) {
+    body.insertBefore(document.createTextNode('Error: ' + e.message), cursor);
+  }
+  cursor.remove();
+}
+
+async function saveUploadedClass() {
+  const payload = {
+    titulo:        document.getElementById('upTitulo').value.trim() || 'Clase sin título',
+    materia:       document.getElementById('upMateria').value.trim(),
+    tags:          document.getElementById('upTags').value.trim(),
+    es_publica:    document.getElementById('upPublica').checked,
+    transcripcion: upTranscript,
+    resumen:       upSummary,
+  };
+
+  const res  = await fetch('/api/guardar-clase', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  if (data.success) {
+    showToast('Clase guardada en tu biblioteca', 'success');
+    resetUpload();
+    loadBiblioteca();
+    showTabByName('biblioteca');
+  } else {
+    showToast(data.error || 'Error al guardar', 'error');
+  }
+}
+
+function resetUpload() {
+  uploadedFile = null; upTranscript = ''; upSummary = '';
+  document.getElementById('uploadFileName').textContent = '';
+  document.getElementById('upProcessBtn').disabled = true;
+  document.getElementById('upResults').style.display = 'none';
+  document.getElementById('upSavePanel').classList.remove('show');
+  document.getElementById('upTranscriptBody').innerHTML = '';
+  document.getElementById('upSummaryBody').innerHTML   = '';
+}
+
+// ════════════════════════════════════════════════
+//  BIBLIOTECA
+// ════════════════════════════════════════════════
+async function loadBiblioteca() {
+  try {
+    const res   = await fetch('/api/clases');
+    allClases   = await res.json();
+    renderClases(allClases);
+  } catch(e) { console.error(e); }
+}
+
+function renderClases(list) {
+  const container = document.getElementById('clasesContainer');
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="empty-lib">
+        <div class="empty-lib-icon">📭</div>
+        <p style="font-size:15px;font-weight:600;color:var(--ink-2);margin-bottom:8px;">Aún no hay clases guardadas</p>
+        <p style="font-size:13px;">Graba o sube tu primera clase para comenzar</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(c => `
+    <div class="clase-card">
+      <div class="clase-card-icon">🎓</div>
+      <div class="clase-card-body">
+        <div class="clase-card-title">${c.titulo}</div>
+        <div class="clase-card-meta">
+          ${c.materia ? `<span>📖 ${c.materia}</span>` : ''}
+          <span>📅 ${c.fecha_grabacion.slice(0, 10)}</span>
+          <span class="pub-badge ${c.es_publica ? 'pub-badge-yes' : 'pub-badge-no'}">${c.es_publica ? 'Pública' : 'Privada'}</span>
+        </div>
+      </div>
+      <div class="clase-card-actions">
+        <button class="icon-btn" onclick="togglePublic(${c.id})" title="Cambiar visibilidad">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
+        </button>
+        <button class="icon-btn" onclick="deleteClase(${c.id})" title="Eliminar" style="color:var(--danger)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterClases(query) {
+  const q = query.toLowerCase();
+  renderClases(allClases.filter(c =>
+    c.titulo.toLowerCase().includes(q) || (c.materia || '').toLowerCase().includes(q)
+  ));
+}
+
+async function togglePublic(id) {
+  const res  = await fetch(`/api/clase/${id}/toggle-public`, { method: 'POST' });
+  const data = await res.json();
+  if (data.success) { showToast('Visibilidad actualizada', 'success'); loadBiblioteca(); }
+}
+
+async function deleteClase(id) {
+  if (!confirm('¿Eliminar esta clase? Esta acción no se puede deshacer.')) return;
+  const res  = await fetch(`/api/clase/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (data.success) { showToast('Clase eliminada', 'success'); loadBiblioteca(); }
+}
+
+// ── Helpers ──────────────────────────────────────
+function copyText(id) {
+  const text = document.getElementById(id).innerText;
+  navigator.clipboard.writeText(text).then(() => showToast('Copiado al portapapeles', 'success'));
+}
+
+function showTabByName(name) {
+  const btns = document.querySelectorAll('.tab-btn');
+  const tabs = ['grabar', 'subir', 'biblioteca'];
+  const idx  = tabs.indexOf(name);
+  if (idx >= 0) showTab(name, btns[idx]);
+}
+</script>
+{% endblock %}

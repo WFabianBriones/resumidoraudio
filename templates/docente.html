@@ -25,21 +25,21 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         Resumen
       </a>
-      <a class="sidebar-nav-item" href="#">
+      <a class="sidebar-nav-item" href="{{ url_for('docente_nueva_clase') }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
         Nueva clase
       </a>
       <span class="sidebar-nav-section">Gestión</span>
-      <a class="sidebar-nav-item" href="#">
+      <a class="sidebar-nav-item" href="{{ url_for('docente_nueva_clase') }}#biblioteca">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
         Mis clases
       </a>
-      <a class="sidebar-nav-item" href="#">
+      <a class="sidebar-nav-item" href="{{ url_for('docente_estadisticas') }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
         Estadísticas
       </a>
       <span class="sidebar-nav-section">Cuenta</span>
-      <a class="sidebar-nav-item" href="#">
+      <a class="sidebar-nav-item" href="{{ url_for('docente_perfil') }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
         Perfil
       </a>
@@ -54,12 +54,12 @@
     </div>
   </aside>
 
-  <!-- Main content -->
+  <!-- Main -->
   <main class="dash-main dash-main-doc">
     <div class="dash-topbar">
       <span class="dash-topbar-title">Panel docente</span>
-      <div style="display:flex; align-items:center; gap:12px;">
-        <button class="btn btn-primary" style="font-size:13px; padding:9px 18px;">+ Nueva clase</button>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <a href="{{ url_for('docente_nueva_clase') }}" class="btn btn-primary" style="font-size:13px;padding:9px 18px;">+ Nueva clase</a>
       </div>
     </div>
 
@@ -80,7 +80,7 @@
           </p>
         </div>
         <div class="dash-welcome-action">
-          <a href="#" class="btn btn-gold">Subir primera clase →</a>
+          <a href="{{ url_for('docente_nueva_clase') }}" class="btn btn-gold">Subir primera clase →</a>
         </div>
       </div>
 
@@ -131,22 +131,37 @@
       <!-- Quick actions -->
       <h3 class="dash-section-title">Acciones rápidas</h3>
       <div class="quick-actions">
-        <div class="action-card">
+        <a href="{{ url_for('docente_nueva_clase') }}" class="action-card">
           <div class="action-icon">🎤</div>
           <div class="action-title">Grabar clase</div>
-          <div class="action-desc">Graba directamente desde el navegador y procesa en tiempo real.</div>
-          <span class="badge-coming">Próximamente</span>
-        </div>
-        <div class="action-card">
+          <div class="action-desc">Graba directamente desde el navegador con transcripción en tiempo real.</div>
+        </a>
+        <a href="{{ url_for('docente_nueva_clase') }}" class="action-card">
           <div class="action-icon">📁</div>
           <div class="action-title">Subir audio</div>
           <div class="action-desc">Sube archivos MP3, WAV, M4A u otros formatos de audio.</div>
-          <span class="badge-coming">Próximamente</span>
-        </div>
-        <div class="action-card">
+        </a>
+        <a href="{{ url_for('docente_nueva_clase') }}#biblioteca" class="action-card">
           <div class="action-icon">📚</div>
           <div class="action-title">Mi biblioteca</div>
-          <div class="action-desc">Gestiona todas tus clases guardadas y organiza por materia.</div>
+          <div class="action-desc">Gestiona todas tus clases guardadas, edita y organiza.</div>
+        </a>
+        <a href="{{ url_for('docente_estadisticas') }}" class="action-card">
+          <div class="action-icon">📊</div>
+          <div class="action-title">Estadísticas</div>
+          <div class="action-desc">Visualiza el uso de tus clases y el progreso de transcripciones.</div>
+          <span class="badge-coming">Próximamente</span>
+        </a>
+        <a href="{{ url_for('docente_perfil') }}" class="action-card">
+          <div class="action-icon">👤</div>
+          <div class="action-title">Mi perfil</div>
+          <div class="action-desc">Actualiza tus datos, institución y preferencias de cuenta.</div>
+          <span class="badge-coming">Próximamente</span>
+        </a>
+        <div class="action-card" style="cursor:default;opacity:.6;">
+          <div class="action-icon">🔗</div>
+          <div class="action-title">Compartir enlace</div>
+          <div class="action-desc">Genera un enlace directo a tus clases para compartir con estudiantes.</div>
           <span class="badge-coming">Próximamente</span>
         </div>
       </div>
@@ -156,7 +171,7 @@
       <div class="classes-table">
         <div class="classes-table-header">
           <span class="classes-table-title">Historial</span>
-          <button class="btn btn-outline" style="font-size:13px; padding:7px 16px;">Ver todas</button>
+          <a href="{{ url_for('docente_nueva_clase') }}#biblioteca" class="btn btn-outline" style="font-size:13px;padding:7px 16px;">Ver todas</a>
         </div>
         {% if clases_recientes %}
         <table class="table">
@@ -175,8 +190,8 @@
               <td>{{ clase.materia or '—' }}</td>
               <td>{{ clase.fecha_grabacion[:10] }}</td>
               <td>
-                <span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700;
-                  {% if clase.es_publica %}background:#E8F5EF; color:#0D3B2E;{% else %}background:#F5F5F3; color:#6B6B62;{% endif %}">
+                <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;
+                  {% if clase.es_publica %}background:#E8F5EF;color:#0D3B2E;{% else %}background:#F5F5F3;color:#6B6B62;{% endif %}">
                   {{ 'Pública' if clase.es_publica else 'Privada' }}
                 </span>
               </td>
@@ -187,7 +202,7 @@
         {% else %}
         <div class="table-empty">
           <div class="table-empty-icon">📭</div>
-          <p style="font-size:15px; font-weight:600; color:var(--ink-2); margin-bottom:8px;">Aún no hay clases</p>
+          <p style="font-size:15px;font-weight:600;color:var(--ink-2);margin-bottom:8px;">Aún no hay clases</p>
           <p style="font-size:14px;">Sube tu primer audio para comenzar</p>
         </div>
         {% endif %}
