@@ -1,6 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Crear cuenta — EduTranscribe{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Email preview box ── */
+.email-preview {
+  margin-top: 8px; padding: 10px 14px;
+  background: var(--cream); border-radius: var(--radius);
+  border: 1px solid var(--cream-3);
+  font-size: 13px; color: var(--ink-3);
+  display: flex; align-items: center; gap: 8px;
+  transition: all .2s;
+}
+.email-preview.valid   { background: #EFF6F3; border-color: #B8DDD0; color: var(--forest-2); }
+.email-preview.invalid { background: #FEF0EF; border-color: #F5B7B1; color: var(--danger); }
+.email-preview svg { width: 14px; height: 14px; flex-shrink: 0; }
+.email-preview-text { font-family: monospace; font-size: 13px; word-break: break-all; }
+
+/* ── Cedula field (only for students) ── */
+.cedula-field { display: none; }
+.cedula-field.show { display: block; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="auth-layout">
 
@@ -15,19 +37,30 @@
         <a class="auth-left-logo" href="{{ url_for('home') }}">EduTranscribe</a>
       </div>
       <p class="auth-quote">Empieza a transformar tus <em>clases hoy</em></p>
-      <p class="auth-desc">Regístrate gratis y accede a transcripciones y resúmenes automáticos.</p>
-      <div style="margin-top:32px; display:flex; flex-direction:column; gap:14px;">
-        <div style="display:flex; align-items:center; gap:12px;">
+      <p class="auth-desc">Regístrate con tu correo institucional ULEAM.</p>
+      <div style="margin-top:32px;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:center;gap:12px;">
           <div style="width:32px;height:32px;background:rgba(200,151,58,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold-lt);font-weight:700;font-size:13px;flex-shrink:0;">1</div>
-          <span style="font-size:14px;color:rgba(246,241,231,.75);">Crea tu cuenta gratis en menos de 2 minutos</span>
+          <span style="font-size:14px;color:rgba(246,241,231,.75);">Selecciona tu extensión ULEAM</span>
         </div>
-        <div style="display:flex; align-items:center; gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;">
           <div style="width:32px;height:32px;background:rgba(200,151,58,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold-lt);font-weight:700;font-size:13px;flex-shrink:0;">2</div>
-          <span style="font-size:14px;color:rgba(246,241,231,.75);">Elige si eres docente o estudiante</span>
+          <span style="font-size:14px;color:rgba(246,241,231,.75);">Usa tu correo institucional</span>
         </div>
-        <div style="display:flex; align-items:center; gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;">
           <div style="width:32px;height:32px;background:rgba(200,151,58,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold-lt);font-weight:700;font-size:13px;flex-shrink:0;">3</div>
-          <span style="font-size:14px;color:rgba(246,241,231,.75);">Empieza a subir y procesar clases</span>
+          <span style="font-size:14px;color:rgba(246,241,231,.75);">Accede a transcripciones y resúmenes IA</span>
+        </div>
+      </div>
+      <div style="margin-top:40px;padding:20px;background:rgba(255,255,255,.06);border-radius:var(--radius-lg);border:1px solid rgba(255,255,255,.1);">
+        <div style="font-size:12px;font-weight:700;color:rgba(246,241,231,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;">Formato de correo</div>
+        <div style="font-size:13px;color:rgba(246,241,231,.7);margin-bottom:8px;">
+          <span style="color:var(--gold-lt);font-weight:600;">Docente:</span><br>
+          <span style="font-family:monospace;font-size:12px;">nombre.apellido@uleam.edu.ec</span>
+        </div>
+        <div style="font-size:13px;color:rgba(246,241,231,.7);">
+          <span style="color:var(--gold-lt);font-weight:600;">Estudiante:</span><br>
+          <span style="font-family:monospace;font-size:12px;">e{cédula}@live.uleam.edu.ec</span>
         </div>
       </div>
     </div>
@@ -37,7 +70,7 @@
   </div>
 
   <!-- Panel derecho -->
-  <div class="auth-panel-right" style="overflow-y:auto; justify-content:flex-start; padding-top:40px; padding-bottom:40px;">
+  <div class="auth-panel-right" style="overflow-y:auto;justify-content:flex-start;padding-top:40px;padding-bottom:40px;">
     <div class="auth-form-wrapper">
       <h1 class="auth-form-title">Crear cuenta</h1>
       <p class="auth-form-sub">
@@ -48,7 +81,7 @@
 
       <form class="auth-form" id="regForm">
 
-        <!-- Selector de rol -->
+        <!-- Rol -->
         <div class="form-group">
           <label>Soy…</label>
           <div class="role-selector">
@@ -77,30 +110,72 @@
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="nombre">Nombre</label>
-            <input type="text" id="nombre" class="form-input" placeholder="Ej: María" required>
-          </div>
-          <div class="form-group">
-            <label for="apellido">Apellido</label>
-            <input type="text" id="apellido" class="form-input" placeholder="Ej: García" required>
-          </div>
-        </div>
-
+        <!-- Extensión ULEAM -->
         <div class="form-group">
-          <label for="email">Correo electrónico</label>
-          <input type="email" id="email" class="form-input" placeholder="nombre@uleam.edu.ec" required>
+          <label for="extension">Extensión ULEAM</label>
+          <select id="extension" class="form-input" onchange="updateEmailPreview()" required
+            style="cursor:pointer;">
+            <option value="" disabled selected>Selecciona tu extensión…</option>
+            <option value="Matriz Manta">🏛 Matriz — Manta</option>
+            <option value="El Carmen">📍 Extensión El Carmen</option>
+            <option value="Chone">📍 Extensión Chone</option>
+            <option value="Pedernales">📍 Extensión Pedernales</option>
+            <option value="Bahía de Caráquez">📍 Extensión Bahía de Caráquez</option>
+            <option value="Rocafuerte">📍 Extensión Rocafuerte</option>
+            <option value="Tosagua">📍 Extensión Tosagua</option>
+            <option value="San Vicente">📍 Extensión San Vicente</option>
+            <option value="Flavio Alfaro">📍 Extensión Flavio Alfaro</option>
+            <option value="Jipijapa">📍 Extensión Jipijapa</option>
+          </select>
         </div>
 
+        <!-- Nombre y apellido (docente) -->
+        <div id="nombreApellidoFields">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="nombre">Nombre</label>
+              <input type="text" id="nombre" class="form-input"
+                placeholder="Ej: Matteo" oninput="updateEmailPreview()">
+            </div>
+            <div class="form-group">
+              <label for="apellido">Apellido</label>
+              <input type="text" id="apellido" class="form-input"
+                placeholder="Ej: Velez" oninput="updateEmailPreview()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Cédula (solo estudiantes) -->
+        <div class="form-group cedula-field" id="cedulaField">
+          <label for="cedula">Número de cédula <span style="color:var(--ink-3);font-weight:400;">(10 dígitos)</span></label>
+          <input type="text" id="cedula" class="form-input"
+            placeholder="Ej: 1312345678"
+            maxlength="10"
+            oninput="this.value=this.value.replace(/\D/g,'').slice(0,10); updateEmailPreview()">
+          <span style="font-size:11px;color:var(--ink-3);margin-top:4px;display:block;">
+            Ingresa tu cédula incluyendo el cero inicial si aplica
+          </span>
+        </div>
+
+        <!-- Email generado / ingresado -->
         <div class="form-group">
-          <label for="institucion">Institución</label>
-          <input type="text" id="institucion" class="form-input" placeholder="Ej: ULEAM El Carmen">
+          <label for="email">Correo institucional ULEAM</label>
+          <input type="email" id="email" class="form-input"
+            placeholder="Se genera automáticamente…"
+            oninput="validateEmailManual()" required>
+          <div class="email-preview" id="emailPreview" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="emailPreviewIcon">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <span class="email-preview-text" id="emailPreviewText"></span>
+          </div>
         </div>
 
+        <!-- Contraseña -->
         <div class="form-group">
           <label for="password">Contraseña</label>
-          <input type="password" id="password" class="form-input" placeholder="Mínimo 8 caracteres"
+          <input type="password" id="password" class="form-input"
+            placeholder="Mínimo 8 caracteres"
             oninput="updatePassStrength(this.value)" required>
           <div class="pass-strength">
             <div class="pass-bar" id="bar1"></div>
@@ -110,16 +185,14 @@
           </div>
         </div>
 
-        <div class="checkbox-row">
-          <input type="checkbox" id="terms" required>
-          <label for="terms">Acepto los <a href="#">términos de uso</a> y la <a href="#">política de privacidad</a></label>
-        </div>
+        <button type="submit" class="btn btn-primary btn-lg btn-full" id="regBtn">
+          Crear cuenta
+        </button>
 
-        <button type="submit" class="btn btn-primary btn-lg btn-full" id="regBtn">Crear cuenta</button>
       </form>
 
-      <div style="text-align:center; margin-top:24px;">
-        <a href="{{ url_for('home') }}" style="color:var(--ink-3); font-size:13px; text-decoration:none;">← Volver al inicio</a>
+      <div style="text-align:center;margin-top:24px;">
+        <a href="{{ url_for('home') }}" style="color:var(--ink-3);font-size:13px;text-decoration:none;">← Volver al inicio</a>
       </div>
     </div>
   </div>
@@ -128,48 +201,167 @@
 
 {% block extra_js %}
 <script>
-function updatePassStrength(val) {
-  const bars = ['bar1','bar2','bar3','bar4'];
-  bars.forEach(b => document.getElementById(b).className = 'pass-bar');
-  let strength = 0;
-  if (val.length >= 8) strength++;
-  if (val.length >= 12) strength++;
-  if (/[A-Z]/.test(val) && /[0-9]/.test(val)) strength++;
-  if (/[^A-Za-z0-9]/.test(val)) strength++;
-  const cls = strength <= 1 ? 'weak' : strength <= 2 ? 'medium' : 'strong';
-  for (let i = 0; i < Math.min(strength + 1, 4); i++) {
-    document.getElementById(bars[i]).className = `pass-bar ${cls}`;
+// ── Reglas de correo ──
+const EMAIL_DOCENTE   = /^[a-záéíóúüñ]+\.[a-záéíóúüñ]+@uleam\.edu\.ec$/i;
+const EMAIL_ESTUDIANTE = /^e\d{10}@live\.uleam\.edu\.ec$/i;
+
+function getRol() {
+  return document.querySelector('input[name="rol"]:checked').value;
+}
+
+// ── Alternar campos según rol ──
+document.querySelectorAll('input[name="rol"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const esEst = getRol() === 'estudiante';
+    document.getElementById('cedulaField').classList.toggle('show', esEst);
+    document.getElementById('nombre').required    = !esEst;
+    document.getElementById('apellido').required  = !esEst;
+    document.getElementById('cedula').required    = esEst;
+    // Clear email and preview
+    document.getElementById('email').value = '';
+    document.getElementById('emailPreview').style.display = 'none';
+    updateEmailPreview();
+  });
+});
+
+// ── Generar email automáticamente ──
+function updateEmailPreview() {
+  const rol = getRol();
+  const emailInput = document.getElementById('email');
+  let generatedEmail = '';
+
+  if (rol === 'docente') {
+    const nombre   = normalize(document.getElementById('nombre').value.trim().split(' ')[0]);
+    const apellido = normalize(document.getElementById('apellido').value.trim().split(' ')[0]);
+    if (nombre && apellido) {
+      generatedEmail = `${nombre}.${apellido}@uleam.edu.ec`;
+    }
+  } else {
+    const cedula = document.getElementById('cedula').value.trim();
+    if (cedula.length === 10 && /^\d{10}$/.test(cedula)) {
+      generatedEmail = `e${cedula}@live.uleam.edu.ec`;
+    }
+  }
+
+  if (generatedEmail) {
+    emailInput.value = generatedEmail;
+    showEmailPreview(generatedEmail, true);
+  } else {
+    // Don't clear manual input
+    if (!emailInput.value) {
+      document.getElementById('emailPreview').style.display = 'none';
+    }
   }
 }
 
+function normalize(str) {
+  return str.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/[^a-z]/g, '');
+}
+
+function showEmailPreview(email, isValid) {
+  const box  = document.getElementById('emailPreview');
+  const text = document.getElementById('emailPreviewText');
+  const icon = document.getElementById('emailPreviewIcon');
+  box.style.display = 'flex';
+  text.textContent = email;
+  if (isValid) {
+    box.className = 'email-preview valid';
+    icon.innerHTML = '<path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" stroke-width="2" fill="none"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" fill="none"/>';
+  } else {
+    box.className = 'email-preview invalid';
+    icon.innerHTML = '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" fill="none"/>';
+  }
+}
+
+function validateEmailManual() {
+  const email = document.getElementById('email').value.trim();
+  const rol   = getRol();
+  if (!email) { document.getElementById('emailPreview').style.display = 'none'; return; }
+  const valid = rol === 'docente' ? EMAIL_DOCENTE.test(email) : EMAIL_ESTUDIANTE.test(email);
+  showEmailPreview(email, valid);
+}
+
+// ── Password strength ──
+function updatePassStrength(val) {
+  const bars = ['bar1','bar2','bar3','bar4'];
+  bars.forEach(b => document.getElementById(b).className = 'pass-bar');
+  let s = 0;
+  if (val.length >= 8)  s++;
+  if (val.length >= 12) s++;
+  if (/[A-Z]/.test(val) && /[0-9]/.test(val)) s++;
+  if (/[^A-Za-z0-9]/.test(val)) s++;
+  const cls = s <= 1 ? 'weak' : s <= 2 ? 'medium' : 'strong';
+  for (let i = 0; i < Math.min(s + 1, 4); i++)
+    document.getElementById(bars[i]).className = `pass-bar ${cls}`;
+}
+
+// ── Submit ──
 document.getElementById('regForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const btn = document.getElementById('regBtn');
-  btn.textContent = 'Creando cuenta…'; btn.disabled = true;
+  const alert = document.getElementById('regAlert');
+  alert.classList.remove('show');
 
-  const payload = {
-    nombre:      document.getElementById('nombre').value.trim() + ' ' + document.getElementById('apellido').value.trim(),
-    email:       document.getElementById('email').value.trim(),
-    password:    document.getElementById('password').value,
-    institucion: document.getElementById('institucion').value.trim(),
-    rol:         document.querySelector('input[name="rol"]:checked').value
-  };
+  const rol       = getRol();
+  const email     = document.getElementById('email').value.trim();
+  const password  = document.getElementById('password').value;
+  const extension = document.getElementById('extension').value;
+
+  // Validaciones frontend
+  if (!extension) {
+    alert.textContent = 'Selecciona tu extensión ULEAM'; alert.classList.add('show'); return;
+  }
+
+  const emailValido = rol === 'docente' ? EMAIL_DOCENTE.test(email) : EMAIL_ESTUDIANTE.test(email);
+  if (!emailValido) {
+    const fmt = rol === 'docente'
+      ? 'nombre.apellido@uleam.edu.ec'
+      : 'e{cédula10dígitos}@live.uleam.edu.ec';
+    alert.textContent = `Correo inválido. Formato requerido: ${fmt}`;
+    alert.classList.add('show'); return;
+  }
+
+  if (password.length < 8) {
+    alert.textContent = 'La contraseña debe tener al menos 8 caracteres';
+    alert.classList.add('show'); return;
+  }
+
+  // Armar nombre completo
+  let nombre;
+  if (rol === 'docente') {
+    const n = document.getElementById('nombre').value.trim();
+    const a = document.getElementById('apellido').value.trim();
+    if (!n || !a) {
+      alert.textContent = 'Ingresa tu nombre y apellido'; alert.classList.add('show'); return;
+    }
+    nombre = `${n} ${a}`;
+  } else {
+    const cedula = document.getElementById('cedula').value.trim();
+    if (!/^\d{10}$/.test(cedula)) {
+      alert.textContent = 'La cédula debe tener exactamente 10 dígitos';
+      alert.classList.add('show'); return;
+    }
+    nombre = `Estudiante ${cedula.slice(-4)}`;
+  }
+
+  const btn = document.getElementById('regBtn');
+  btn.disabled = true; btn.textContent = 'Creando cuenta…';
 
   const res  = await fetch('/api/registro', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ nombre, email, password, institucion: `ULEAM ${extension}`, rol })
   });
-  const json = await res.json();
+  const data = await res.json();
 
-  if (json.success) {
-    showToast('Cuenta creada correctamente', 'success');
-    window.location.href = json.redirect;
+  if (data.success) {
+    showToast('Cuenta creada', 'success');
+    window.location.href = data.redirect;
   } else {
-    const alert = document.getElementById('regAlert');
-    alert.textContent = json.error || 'Error al crear la cuenta';
+    alert.textContent = data.error || 'Error al crear cuenta';
     alert.classList.add('show');
-    btn.textContent = 'Crear cuenta'; btn.disabled = false;
+    btn.disabled = false; btn.textContent = 'Crear cuenta';
   }
 });
 </script>

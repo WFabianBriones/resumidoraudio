@@ -411,14 +411,26 @@ def demo_login(rol):
 @app.route('/api/registro', methods=['POST'])
 def api_registro():
     d = request.get_json()
-    nombre=d.get('nombre','').strip(); email=d.get('email','').strip()
+    nombre=d.get('nombre','').strip(); email=d.get('email','').strip().lower()
     password=d.get('password',''); institucion=d.get('institucion',''); rol=d.get('rol','estudiante')
+
     if not nombre or not email or not password:
         return jsonify({'error':'Datos incompletos'}), 400
     if len(password) < 8:
         return jsonify({'error':'Contraseña mínimo 8 caracteres'}), 400
     if rol not in ('docente','estudiante'):
         return jsonify({'error':'Rol inválido'}), 400
+
+    # Validar formato de correo institucional ULEAM
+    import re as _re
+    if rol == 'docente':
+        patron = r'^[a-z]+\.[a-z]+@uleam\.edu\.ec$'
+        if not _re.match(patron, email):
+            return jsonify({'error': 'Correo docente inválido. Formato: nombre.apellido@uleam.edu.ec'}), 400
+    else:
+        patron = r'^e\d{10}@live\.uleam\.edu\.ec$'
+        if not _re.match(patron, email):
+            return jsonify({'error': 'Correo estudiante inválido. Formato: e{cédula}@live.uleam.edu.ec'}), 400
     try:
         with get_db() as conn:
             conn.execute('INSERT INTO usuarios (email,password_hash,nombre,institucion,rol) VALUES (?,?,?,?,?)',
