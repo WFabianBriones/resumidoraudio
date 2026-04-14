@@ -4,63 +4,12 @@
 {% block content %}
 <div class="dash-layout">
 
-  <!-- Sidebar (navy) -->
-  <aside class="sidebar sidebar-est">
-    <div class="sidebar-logo">
-      <div class="nav-logo-mark nav-logo-mark-est">
-        <svg viewBox="0 0 18 18" fill="none"><path d="M2 9h2M5 5h2M5 13h2M9 3h2M9 15h2M13 6h2M13 12h2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </div>
-      <span class="sidebar-logo-text">EduTranscribe</span>
-    </div>
-    <div class="sidebar-user">
-      <div class="sidebar-avatar sidebar-avatar-est">{{ nombre[:2].upper() }}</div>
-      <div>
-        <div class="sidebar-user-name">{{ nombre }}</div>
-        <div class="sidebar-user-role sidebar-role-est">Estudiante</div>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <span class="sidebar-nav-section">Principal</span>
-      <a class="sidebar-nav-item active-est" href="{{ url_for('estudiante_dashboard') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Inicio
-      </a>
-      <a class="sidebar-nav-item" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        Buscar clases
-      </a>
-      <span class="sidebar-nav-section">Mi estudio</span>
-      <a class="sidebar-nav-item" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-        Favoritos
-      </a>
-      <a class="sidebar-nav-item" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-        Mis materias
-      </a>
-      <span class="sidebar-nav-section">Cuenta</span>
-      <a class="sidebar-nav-item" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        Perfil
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <form method="POST" action="{{ url_for('api_logout') }}" style="margin:0;">
-        <button type="submit" class="sidebar-nav-item" style="color:rgba(246,241,231,.5);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Cerrar sesión
-        </button>
-      </form>
-    </div>
-  </aside>
+  {% set active = 'inicio' %}
+  {% include '_sidebar_estudiante.html' %}
 
-  <!-- Main content -->
   <main class="dash-main dash-main-est">
     <div class="dash-topbar">
       <span class="dash-topbar-title">Panel de estudio</span>
-      <div>
-        <button class="btn" style="background:#3B3B6E; color:white; font-size:13px; padding:9px 18px;">Buscar clases</button>
-      </div>
     </div>
 
     <div class="dash-content">
@@ -69,12 +18,20 @@
       <div class="dash-welcome dash-welcome-est">
         <div class="dash-welcome-grid"></div>
         <div class="dash-welcome-text">
-          <div class="dash-welcome-eyebrow dash-welcome-eyebrow-est">Bienvenido</div>
+          <div class="dash-welcome-eyebrow" style="color:var(--navy-lt);">Bienvenido</div>
           <h2 class="dash-welcome-title">Hola, {{ nombre.split()[0] }} 👋</h2>
-          <p class="dash-welcome-sub">Busca las clases de tus docentes y accede a transcripciones y resúmenes.</p>
+          <p class="dash-welcome-sub">
+            {% if total_vistas > 0 %}
+              Has visto {{ total_vistas }} clase{{ 's' if total_vistas != 1 else '' }}. ¡Sigue así!
+            {% else %}
+              Busca las clases de tus docentes y accede a transcripciones y resúmenes.
+            {% endif %}
+          </p>
         </div>
         <div class="dash-welcome-action">
-          <a href="#" class="btn btn-outline-white">Buscar clases →</a>
+          <a href="{{ url_for('estudiante_buscar') }}" class="btn btn-outline-white">
+            Buscar clases →
+          </a>
         </div>
       </div>
 
@@ -84,78 +41,130 @@
           <div class="stat-card-header">
             <span class="stat-card-label">Clases vistas</span>
             <div class="stat-card-icon" style="background:#EAEBF8;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B3B6E" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B3B6E" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
             </div>
           </div>
-          <div class="stat-card-value">{{ clases_vistas }}</div>
-          <div class="stat-card-change">{% if clases_vistas == 0 %}Sin actividad aún{% else %}Total vistas{% endif %}</div>
+          <div class="stat-card-value">{{ total_vistas }}</div>
+          <div class="stat-card-change">{% if total_vistas == 0 %}Sin actividad aún{% else %}Total{% endif %}</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-header">
             <span class="stat-card-label">Favoritos</span>
             <div class="stat-card-icon" style="background:#F9E8EC;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#993556" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#993556" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+              </svg>
             </div>
           </div>
-          <div class="stat-card-value">{{ favoritos }}</div>
+          <div class="stat-card-value">{{ total_favoritos }}</div>
           <div class="stat-card-change">Clases guardadas</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-header">
-            <span class="stat-card-label">Materias</span>
+            <span class="stat-card-label">Clases disponibles</span>
             <div class="stat-card-icon" style="background:#FBF3E0;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/>
+              </svg>
             </div>
           </div>
-          <div class="stat-card-value">{{ materias }}</div>
-          <div class="stat-card-change">Seguidas</div>
+          <div class="stat-card-value">{{ total_publicas }}</div>
+          <div class="stat-card-change">Públicas en la plataforma</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-header">
-            <span class="stat-card-label">Tiempo de estudio</span>
+            <span class="stat-card-label">Docentes activos</span>
             <div class="stat-card-icon" style="background:#E8F5EF;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6E52" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6E52" stroke-width="2">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
             </div>
           </div>
-          <div class="stat-card-value">0h</div>
-          <div class="stat-card-change">Esta semana</div>
+          <div class="stat-card-value">{{ total_docentes }}</div>
+          <div class="stat-card-change">Con clases publicadas</div>
         </div>
       </div>
 
-      <!-- Explore -->
+      <!-- Quick actions -->
       <h3 class="dash-section-title">Explorar</h3>
       <div class="quick-actions">
-        <div class="action-card">
+
+        <a href="{{ url_for('estudiante_buscar') }}" class="action-card">
           <div class="action-icon">🔍</div>
-          <div class="action-title">Buscar por docente</div>
-          <div class="action-desc">Encuentra las clases de un profesor específico por nombre o materia.</div>
-          <span class="badge-coming">Próximamente</span>
-        </div>
-        <div class="action-card">
+          <div class="action-title">Buscar clases</div>
+          <div class="action-desc">Encuentra clases por título, docente o materia.</div>
+        </a>
+
+        <a href="{{ url_for('estudiante_buscar') }}?recientes=1" class="action-card">
           <div class="action-icon">📅</div>
           <div class="action-title">Clases recientes</div>
           <div class="action-desc">Explora las últimas clases públicas subidas a la plataforma.</div>
-          <span class="badge-coming">Próximamente</span>
-        </div>
-        <div class="action-card">
+        </a>
+
+        <a href="{{ url_for('estudiante_favoritos') }}" class="action-card">
           <div class="action-icon">📌</div>
           <div class="action-title">Mis favoritos</div>
-          <div class="action-desc">Guarda clases para repasar antes de exámenes o evaluaciones.</div>
-          <span class="badge-coming">Próximamente</span>
-        </div>
+          <div class="action-desc">
+            {% if total_favoritos > 0 %}
+              Tienes {{ total_favoritos }} clase{{ 's' if total_favoritos != 1 else '' }} guardada{{ 's' if total_favoritos != 1 else '' }}.
+            {% else %}
+              Guarda clases para repasar antes de exámenes.
+            {% endif %}
+          </div>
+        </a>
+
       </div>
 
-      <!-- Activity -->
-      <h3 class="dash-section-title">Actividad reciente</h3>
+      <!-- Recientes -->
+      <h3 class="dash-section-title">Clases recientes en la plataforma</h3>
       <div class="classes-table">
         <div class="classes-table-header">
-          <span class="classes-table-title">Clases visitadas</span>
+          <span class="classes-table-title">Últimas publicaciones</span>
+          <a href="{{ url_for('estudiante_buscar') }}" class="btn btn-outline"
+             style="font-size:13px;padding:7px 16px;">Ver todas</a>
         </div>
+        {% if clases_recientes %}
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th>Docente</th>
+              <th>Materia</th>
+              <th>Fecha</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for clase in clases_recientes %}
+            <tr>
+              <td><strong>{{ clase.titulo }}</strong></td>
+              <td>{{ clase.docente_nombre }}</td>
+              <td>{{ clase.materia or '—' }}</td>
+              <td>{{ clase.fecha_grabacion[:10] }}</td>
+              <td>
+                <a href="/clase/{{ clase.id }}"
+                   style="font-size:12px;font-weight:600;color:var(--navy-acc);text-decoration:none;">
+                  Ver →
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
         <div class="table-empty">
           <div class="table-empty-icon">📖</div>
-          <p style="font-size:15px; font-weight:600; color:var(--ink-2); margin-bottom:8px;">Sin actividad todavía</p>
-          <p style="font-size:14px;">Busca clases de tus docentes para empezar</p>
+          <p style="font-size:15px;font-weight:600;color:var(--ink-2);margin-bottom:8px;">
+            Aún no hay clases publicadas
+          </p>
+          <p style="font-size:14px;">Los docentes aún no han compartido clases</p>
         </div>
+        {% endif %}
       </div>
 
     </div>

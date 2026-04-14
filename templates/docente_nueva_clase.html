@@ -222,8 +222,7 @@ canvas#waveform {
 
           <!-- Stage bar -->
           <div class="stage-bar">
-            <div class="stage active" id="stage-rec"><div class="stage-dot"></div>Grabando</div>
-            <div class="stage"       id="stage-tr" ><div class="stage-dot"></div>Transcribiendo</div>
+            <div class="stage active" id="stage-tr"><div class="stage-dot"></div>Transcribiendo en vivo</div>
             <div class="stage"       id="stage-sum"><div class="stage-dot"></div>Generando resumen</div>
             <div class="stage"       id="stage-done"><div class="stage-dot"></div>Listo</div>
           </div>
@@ -428,11 +427,14 @@ canvas#waveform {
 //  SHARED STATE
 // ════════════════════════════════════════════════
 let mediaRecorder, audioStream, audioContext, analyser, animFrame;
-let isRecording   = false;
-let timerInterval = null;
-let elapsedSecs   = 0;
+let isRecording    = false;
+let timerInterval  = null;
+let elapsedSecs    = 0;
 let fullTranscript = '';
 let fullSummary    = '';
+let audioChunks    = [];
+let recognition    = null;    // Web Speech API for instant display
+let confirmedText  = '';      // Finalized segments from Web Speech
 let uploadedFile   = null;
 let upTranscript   = '';
 let upSummary      = '';
@@ -453,15 +455,21 @@ function showTab(name, btn) {
 //  STAGE BAR
 // ════════════════════════════════════════════════
 function setStage(stage) {
-  // stage: 'rec' | 'tr' | 'sum' | 'done'
-  const order = ['rec', 'tr', 'sum', 'done'];
+  // stage: 'tr' | 'sum' | 'done'
+  const order = ['tr', 'sum', 'done'];
   const idx   = order.indexOf(stage);
   order.forEach((s, i) => {
     const el = document.getElementById('stage-' + s);
+    if (!el) return;
     el.className = 'stage';
     if (i < idx)  el.classList.add('done');
     if (i === idx) el.classList.add('active');
   });
+}
+
+// Force DOM repaint - setTimeout guarantees browser paints before continuing
+function waitRepaint(ms=80) {
+  return new Promise(r => setTimeout(r, ms));
 }
 
 // ════════════════════════════════════════════════
@@ -557,6 +565,7 @@ async function startRecording() {
   // Reset state
   fullTranscript = '';
   fullSummary    = '';
+  confirmedText  = '';
   document.getElementById('transcriptBody').innerHTML = '';
   document.getElementById('summaryBody').innerHTML   = '';
   document.getElementById('savePanel').classList.remove('show');
@@ -566,7 +575,7 @@ async function startRecording() {
   document.getElementById('summaryBadge').textContent = 'En espera';
 
   isRecording = true;
-  setStage('rec');
+  setStage('tr');
   startTimer();
   startWaveform(audioStream);
 
@@ -576,17 +585,57 @@ async function startRecording() {
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="white" width="22" height="22"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
   document.getElementById('recHint').textContent = 'Clic para detener';
 
-  // MediaRecorder with timeslice for real-time chunks
+  // ── Web Speech API: transcripción instantánea visual ──
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRec) {
+    recognition = new SpeechRec();
+    recognition.lang = 'es-ES';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          confirmedText += t + ' ';
+        } else {
+          interim = t;
+        }
+      }
+      const body = document.getElementById('transcriptBody');
+      body.innerHTML =
+        (confirmedText ? `<span>${confirmedText}</span>` : '') +
+        (interim       ? `<span style="color:var(--ink-3);font-style:italic;">${interim}</span>` : '') +
+        '<span class="typing-cursor"></span>';
+      body.scrollTop = body.scrollHeight;
+    };
+
+    recognition.onerror = (e) => {
+      if (e.error !== 'aborted' && e.error !== 'no-speech') {
+        console.warn('SpeechRecognition error:', e.error);
+        // Auto-restart if connection lost
+        if (isRecording && e.error === 'network') {
+          try { recognition.start(); } catch(er){}
+        }
+      }
+    };
+
+    recognition.onend = () => {
+      // Auto-restart while still recording (Chrome stops after silence)
+      if (isRecording) { try { recognition.start(); } catch(e){} }
+    };
+
+    recognition.start();
+  }
+
+  // ── MediaRecorder: captura audio para Whisper (versión final precisa) ──
+  audioChunks = [];
+  confirmedText = '';
   const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(m => MediaRecorder.isTypeSupported(m)) || '';
   mediaRecorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : {});
-
-  mediaRecorder.ondataavailable = async (e) => {
-    if (e.data && e.data.size > 1000) {  // Ignore tiny empty chunks
-      await transcribeChunk(e.data);
-    }
-  };
-
-  mediaRecorder.start(CHUNK_INTERVAL_MS);
+  mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
+  mediaRecorder.start(); // sin timeslice — audio continuo para Whisper
 }
 
 async function stopRecording() {
@@ -594,58 +643,86 @@ async function stopRecording() {
   stopTimer();
   stopWaveform();
 
-  mediaRecorder.stop();
+  // Stop Web Speech API
+  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+
+  // Collect final audio blob
+  await new Promise(resolve => { mediaRecorder.onstop = resolve; mediaRecorder.stop(); });
   audioStream.getTracks().forEach(t => t.stop());
 
-  // Update button
+  // Reset button
   const btn = document.getElementById('recBtn');
   btn.classList.remove('recording');
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`;
   document.getElementById('recHint').textContent = 'Clic para grabar';
 
+  // Clear cursor, show whisper refining
+  const body = document.getElementById('transcriptBody');
+  const tc = body.querySelector('.typing-cursor');
+  if (tc) tc.remove();
+  document.getElementById('transcriptBadge').className = 'result-pane-badge badge-live';
+  document.getElementById('transcriptBadge').textContent = '⏳ Refinando con Whisper…';
+
+  // Send full audio to Whisper for accurate final transcript
+  const mimeType = audioChunks.length ? (audioChunks[0].type || 'audio/webm') : 'audio/webm';
+  const fullBlob = new Blob(audioChunks, { type: mimeType });
+  audioChunks = [];
+
+  try {
+    const fd = new FormData();
+    fd.append('chunk', fullBlob, 'recording.webm');
+    const res  = await fetch('/api/transcribe-chunk', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.success && data.text && data.text.trim()) {
+      fullTranscript = data.text.trim();
+      body.textContent = fullTranscript;
+    } else {
+      // Keep Web Speech result if Whisper fails
+      fullTranscript = confirmedText.trim();
+    }
+  } catch(e) {
+    fullTranscript = confirmedText.trim(); // fallback to Web Speech
+  }
+
   document.getElementById('transcriptBadge').className = 'result-pane-badge badge-done';
   document.getElementById('transcriptBadge').textContent = 'Completado';
 
-  // Generate summary with streaming
+  // Move to summary stage
+  setStage('sum');
+  document.getElementById('summaryBadge').className = 'result-pane-badge badge-ai';
+  document.getElementById('summaryBadge').textContent = '✦ Generando…';
+  await waitRepaint(100);
+
   await generateSummaryStream();
 }
 
 async function transcribeChunk(blob) {
-  setStage('tr');
   const formData = new FormData();
   formData.append('chunk', blob, 'chunk.webm');
-
   try {
     const res  = await fetch('/api/transcribe-chunk', { method: 'POST', body: formData });
     const data = await res.json();
-
-    if (data.success && data.text) {
-      fullTranscript += (fullTranscript ? ' ' : '') + data.text;
-      appendTranscriptText(data.text);
+    if (data.success && data.text && data.text.trim()) {
+      fullTranscript += (fullTranscript ? ' ' : '') + data.text.trim();
+      appendTranscriptText(data.text.trim());
     }
-  } catch (e) {
-    console.error('Chunk transcription error:', e);
-  }
+  } catch(e) { console.error('Chunk error:', e); }
 }
 
 function appendTranscriptText(text) {
+  if (!text || !text.trim()) return;
   const body = document.getElementById('transcriptBody');
-  // Animated word-by-word append
-  const words = text.trim().split(' ');
-  let i = 0;
+  // Remove existing cursor from previous chunk
+  const oldCursor = body.querySelector('.typing-cursor');
+  if (oldCursor) oldCursor.remove();
+  // Direct append with space separator
+  const sep = body.textContent.trim().length > 0 ? ' ' : '';
+  body.appendChild(document.createTextNode(sep + text.trim()));
+  // Add new cursor at end
   const cursor = document.createElement('span');
   cursor.className = 'typing-cursor';
   body.appendChild(cursor);
-
-  function addWord() {
-    if (i >= words.length) { cursor.remove(); return; }
-    const word = document.createTextNode((i > 0 || body.textContent.length > 1 ? ' ' : '') + words[i]);
-    body.insertBefore(word, cursor);
-    body.scrollTop = body.scrollHeight;
-    i++;
-    setTimeout(addWord, 40);
-  }
-  addWord();
+  body.scrollTop = body.scrollHeight;
 }
 
 // ════════════════════════════════════════════════
@@ -654,7 +731,7 @@ function appendTranscriptText(text) {
 async function generateSummaryStream() {
   if (!fullTranscript.trim()) return;
 
-  setStage('sum');
+  // Stage already set to 'sum' by caller
   const summaryBody = document.getElementById('summaryBody');
   summaryBody.innerHTML = '';
   document.getElementById('summaryBadge').className = 'result-pane-badge badge-ai';

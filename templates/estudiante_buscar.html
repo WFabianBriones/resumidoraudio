@@ -5,7 +5,7 @@
 <style>
 .search-hero {
   background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
-  padding: 48px 32px 32px; position: relative; overflow: hidden;
+  padding: 40px 32px 28px; position: relative; overflow: hidden;
 }
 .search-hero-grid {
   position: absolute; inset: 0;
@@ -13,130 +13,111 @@
     linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
   background-size: 40px 40px;
 }
-.search-hero-content { position: relative; z-index: 1; max-width: 640px; margin: 0 auto; text-align: center; }
-.search-hero h1 { font-family: var(--serif); font-size: 32px; font-weight: 600; color: var(--cream); margin-bottom: 8px; }
-.search-hero p { font-size: 15px; color: rgba(246,241,231,.6); margin-bottom: 28px; }
-
+.search-hero-content {
+  position: relative; z-index: 1; max-width: 600px; margin: 0 auto; text-align: center;
+}
+.search-hero h1 {
+  font-family: var(--serif); font-size: 28px; font-weight: 600;
+  color: var(--cream); margin-bottom: 6px;
+}
+.search-hero p { font-size: 14px; color: rgba(246,241,231,.6); margin-bottom: 24px; }
 .search-box {
-  display: flex; gap: 8px;
-  background: var(--white); border-radius: var(--radius-lg); padding: 6px 6px 6px 18px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  display: flex; gap: 8px; align-items: center;
+  background: var(--white); border-radius: var(--radius-lg);
+  padding: 6px 6px 6px 16px; box-shadow: 0 8px 32px rgba(0,0,0,.2);
 }
 .search-box input {
-  flex: 1; border: none; outline: none; font-size: 15px; color: var(--ink);
-  font-family: var(--sans); background: none;
+  flex: 1; border: none; outline: none; font-size: 15px;
+  color: var(--ink); font-family: var(--sans); background: none;
 }
 .search-box input::placeholder { color: var(--ink-3); }
 
-.filter-row {
-  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; justify-content: center;
+.filter-bar {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin-top: 14px; justify-content: center;
 }
 .filter-chip {
-  display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+  display: flex; align-items: center; gap: 6px; padding: 6px 14px;
   background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
-  border-radius: 20px; color: rgba(246,241,231,.7); font-size: 13px; cursor: pointer;
-  transition: all .2s;
+  border-radius: 20px; color: rgba(246,241,231,.7); font-size: 13px;
+  cursor: pointer; transition: all .2s; user-select: none;
 }
 .filter-chip:hover, .filter-chip.active {
-  background: rgba(255,255,255,.18); color: var(--cream); border-color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.2); color: var(--cream);
+  border-color: rgba(255,255,255,.35);
 }
-.filter-chip input { display: none; }
-.filter-chip svg { width: 14px; height: 14px; opacity: .7; }
+.filter-input-chip {
+  padding: 6px 14px; background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.15); border-radius: 20px;
+  color: rgba(246,241,231,.8); font-size: 13px; outline: none;
+  font-family: var(--sans); width: 180px;
+  transition: all .2s;
+}
+.filter-input-chip::placeholder { color: rgba(246,241,231,.4); }
+.filter-input-chip:focus { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.35); }
 
-.results-area { padding: 32px; max-width: 900px; margin: 0 auto; }
+.results-area { padding: 28px 32px; }
 .results-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 .results-count { font-size: 14px; color: var(--ink-3); }
 .results-count strong { color: var(--ink); }
 
-.clase-card {
+.clase-result {
   background: var(--white); border-radius: var(--radius-lg);
-  border: 1px solid var(--cream-2); padding: 24px 28px;
-  margin-bottom: 12px; cursor: pointer; transition: all .2s;
-  display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start;
-  text-decoration: none;
+  border: 1px solid var(--cream-2); padding: 22px 26px;
+  margin-bottom: 10px; cursor: pointer; transition: all .2s;
+  display: grid; grid-template-columns: 1fr auto; gap: 16px;
+  align-items: center; text-decoration: none;
 }
-.clase-card:hover { box-shadow: var(--shadow-md); border-color: var(--forest-3); transform: translateY(-1px); }
-.clase-title {
-  font-family: var(--serif); font-size: 19px; font-weight: 600;
-  color: var(--ink); margin-bottom: 8px; letter-spacing: -.01em;
+.clase-result:hover {
+  box-shadow: var(--shadow-md); border-color: #3B3B6E;
+  transform: translateY(-1px);
 }
-.clase-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
-.clase-meta-item { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--ink-3); }
-.clase-meta-item svg { width: 13px; height: 13px; }
-.clase-preview { font-size: 14px; color: var(--ink-3); line-height: 1.6; }
-.clase-arrow {
-  width: 36px; height: 36px; border-radius: 50%; background: var(--cream);
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  transition: background .2s; margin-top: 4px;
+.clase-result-title {
+  font-family: var(--serif); font-size: 18px; font-weight: 600;
+  color: var(--ink); margin-bottom: 7px; letter-spacing: -.01em;
 }
-.clase-card:hover .clase-arrow { background: var(--forest); }
-.clase-card:hover .clase-arrow svg { stroke: white; }
-.clase-arrow svg { width: 16px; height: 16px; stroke: var(--ink-3); transition: stroke .2s; }
+.clase-result-meta {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.meta-chip {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--ink-3);
+}
+.meta-chip svg { width: 13px; height: 13px; }
+.clase-result-preview {
+  font-size: 13px; color: var(--ink-3); line-height: 1.6;
+  display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.arrow-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--cream); display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; transition: background .2s;
+}
+.clase-result:hover .arrow-btn { background: #3B3B6E; }
+.clase-result:hover .arrow-btn svg { stroke: white; }
+.arrow-btn svg { width: 16px; height: 16px; stroke: var(--ink-3); transition: stroke .2s; }
 
-.empty-search { text-align: center; padding: 80px 20px; color: var(--ink-3); }
-.empty-search-icon { font-size: 48px; margin-bottom: 16px; opacity: .3; }
+.empty-results { text-align: center; padding: 80px 20px; }
+.empty-results-icon { font-size: 48px; margin-bottom: 16px; opacity: .3; }
 
-.skeleton { animation: shimmer 1.5s infinite; }
-@keyframes shimmer {
-  0%,100% { opacity: .6; } 50% { opacity: 1; }
+.skeleton-item {
+  height: 110px; background: var(--cream-2); border-radius: var(--radius-lg);
+  margin-bottom: 10px; animation: shimmer 1.4s ease infinite;
 }
-.skeleton-card { height: 120px; background: var(--cream-2); border-radius: var(--radius-lg); margin-bottom: 12px; }
+@keyframes shimmer { 0%,100%{opacity:.5} 50%{opacity:1} }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="dash-layout">
 
-  <!-- Sidebar estudiante -->
-  <aside class="sidebar sidebar-est">
-    <div class="sidebar-logo">
-      <div class="nav-logo-mark nav-logo-mark-est">
-        <svg viewBox="0 0 18 18" fill="none"><path d="M2 9h2M5 5h2M5 13h2M9 3h2M9 15h2M13 6h2M13 12h2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </div>
-      <span class="sidebar-logo-text">EduTranscribe</span>
-    </div>
-    <div class="sidebar-user">
-      <div class="sidebar-avatar sidebar-avatar-est">{{ nombre[:2].upper() }}</div>
-      <div>
-        <div class="sidebar-user-name">{{ nombre }}</div>
-        <div class="sidebar-user-role sidebar-role-est">Estudiante</div>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <span class="sidebar-nav-section">Principal</span>
-      <a class="sidebar-nav-item" href="{{ url_for('estudiante_dashboard') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Inicio
-      </a>
-      <a class="sidebar-nav-item active-est" href="{{ url_for('estudiante_buscar') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        Buscar clases
-      </a>
-      <span class="sidebar-nav-section">Mi estudio</span>
-      <a class="sidebar-nav-item" href="{{ url_for('estudiante_favoritos') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-        Favoritos
-      </a>
-      <span class="sidebar-nav-section">Cuenta</span>
-      <a class="sidebar-nav-item" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        Perfil
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <form method="POST" action="{{ url_for('api_logout') }}" style="margin:0;">
-        <button type="submit" class="sidebar-nav-item" style="color:rgba(246,241,231,.5);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Cerrar sesión
-        </button>
-      </form>
-    </div>
-  </aside>
+  {% set active = 'buscar' %}
+  {% include '_sidebar_estudiante.html' %}
 
-  <!-- Main -->
   <main class="dash-main dash-main-est" style="padding:0;">
 
     <!-- Search hero -->
@@ -146,23 +127,24 @@
         <h1>Buscar clases</h1>
         <p>Accede a transcripciones y resúmenes de clases de tus docentes</p>
         <div class="search-box">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9E9E90" stroke-width="2" style="flex-shrink:0;"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input type="text" id="searchInput" placeholder="Buscar por título, docente o materia…"
-            oninput="debounceSearch()" onkeydown="if(event.key==='Enter') buscarClases()">
-          <button class="btn btn-primary" style="font-size:14px;" onclick="buscarClases()">Buscar</button>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9E9E90" stroke-width="2" style="flex-shrink:0;">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input type="text" id="searchInput"
+            placeholder="Buscar por título, docente o materia…"
+            oninput="debounce()" onkeydown="if(event.key==='Enter') buscar()">
+          <button class="btn" style="background:#3B3B6E;color:white;font-size:14px;border-radius:var(--radius);"
+            onclick="buscar()">Buscar</button>
         </div>
-        <div class="filter-row">
-          <label class="filter-chip" id="chipHoy">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Hoy
-          </label>
-          <label class="filter-chip" id="chipSemana">
-            Esta semana
-          </label>
-          <input type="text" class="filter-chip" id="filtroDocente"
-            placeholder="Filtrar por docente…"
-            style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(246,241,231,.8);outline:none;font-family:var(--sans);font-size:13px;width:200px;"
-            oninput="debounceSearch()">
+        <div class="filter-bar">
+          <span class="filter-chip" id="chipHoy" onclick="toggleChip('chipHoy')">
+            📅 Hoy
+          </span>
+          <span class="filter-chip" id="chipSemana" onclick="toggleChip('chipSemana')">
+            📆 Esta semana
+          </span>
+          <input type="text" class="filter-input-chip" id="filtroDocente"
+            placeholder="Filtrar por docente…" oninput="debounce()">
         </div>
       </div>
     </div>
@@ -170,12 +152,12 @@
     <!-- Results -->
     <div class="results-area">
       <div class="results-header">
-        <span class="results-count" id="resultsCount">Cargando clases…</span>
+        <span class="results-count" id="resultsCount"></span>
       </div>
       <div id="resultsList">
-        <div class="skeleton-card skeleton"></div>
-        <div class="skeleton-card skeleton"></div>
-        <div class="skeleton-card skeleton"></div>
+        <div class="skeleton-item"></div>
+        <div class="skeleton-item"></div>
+        <div class="skeleton-item"></div>
       </div>
     </div>
 
@@ -185,47 +167,51 @@
 
 {% block extra_js %}
 <script>
-let searchTimer = null;
-let activeFilters = new Set();
+let timer = null;
+let allClases = [];
+let activeChips = new Set();
 
-// Cargar al inicio
-buscarClases();
+// Load on start
+window.addEventListener('DOMContentLoaded', () => {
+  // Check if came with ?recientes=1
+  if (new URLSearchParams(location.search).get('recientes')) {
+    toggleChip('chipSemana');
+  }
+  buscar();
+});
 
-// Chips de fecha
-document.getElementById('chipHoy').addEventListener('click', () => {
-  toggleChip('chipHoy'); buscarClases();
-});
-document.getElementById('chipSemana').addEventListener('click', () => {
-  toggleChip('chipSemana'); buscarClases();
-});
+function debounce() {
+  clearTimeout(timer);
+  timer = setTimeout(buscar, 300);
+}
 
 function toggleChip(id) {
   const el = document.getElementById(id);
-  if (activeFilters.has(id)) { activeFilters.delete(id); el.classList.remove('active'); }
-  else { activeFilters.add(id); el.classList.add('active'); }
+  if (activeChips.has(id)) {
+    activeChips.delete(id);
+    el.classList.remove('active');
+  } else {
+    activeChips.add(id);
+    el.classList.add('active');
+  }
+  buscar();
 }
 
-function debounceSearch() {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(buscarClases, 350);
-}
-
-async function buscarClases() {
+async function buscar() {
   const q       = document.getElementById('searchInput').value.trim();
   const docente = document.getElementById('filtroDocente').value.trim();
 
   const params = new URLSearchParams();
   if (docente) params.append('docente', docente);
-
-  if (activeFilters.has('chipHoy')) {
+  if (activeChips.has('chipHoy')) {
     params.append('fecha', new Date().toISOString().slice(0, 10));
   }
 
   try {
-    const res   = await fetch(`/api/clases/publicas?${params}`);
+    const res   = await fetch('/api/clases/publicas?' + params);
     let clases  = await res.json();
 
-    // Client-side filter for title/materia search
+    // Client-side text filter
     if (q) {
       const ql = q.toLowerCase();
       clases = clases.filter(c =>
@@ -236,60 +222,69 @@ async function buscarClases() {
     }
 
     // Week filter
-    if (activeFilters.has('chipSemana')) {
+    if (activeChips.has('chipSemana')) {
       const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
       clases = clases.filter(c => c.fecha_grabacion.slice(0, 10) >= weekAgo);
     }
 
-    renderClases(clases);
+    allClases = clases;
+    renderResultados(clases);
   } catch(e) {
     document.getElementById('resultsList').innerHTML =
-      `<p style="color:var(--danger);font-size:14px;">Error al cargar clases: ${e.message}</p>`;
+      `<p style="color:var(--danger);padding:20px;">Error al cargar clases: ${e.message}</p>`;
   }
 }
 
-function renderClases(list) {
-  const count = document.getElementById('resultsCount');
-  const cont  = document.getElementById('resultsList');
-
-  count.innerHTML = list.length
-    ? `<strong>${list.length}</strong> clase${list.length !== 1 ? 's' : ''} encontrada${list.length !== 1 ? 's' : ''}`
-    : '';
+function renderResultados(list) {
+  const countEl = document.getElementById('resultsCount');
+  const listEl  = document.getElementById('resultsList');
 
   if (!list.length) {
-    cont.innerHTML = `
-      <div class="empty-search">
-        <div class="empty-search-icon">🔍</div>
+    countEl.innerHTML = '';
+    listEl.innerHTML = `
+      <div class="empty-results">
+        <div class="empty-results-icon">🔍</div>
         <p style="font-size:16px;font-weight:600;color:var(--ink-2);margin-bottom:8px;">Sin resultados</p>
-        <p style="font-size:14px;">Prueba con otros términos o elimina los filtros</p>
+        <p style="font-size:14px;color:var(--ink-3);">Prueba con otros términos o elimina los filtros</p>
       </div>`;
     return;
   }
 
-  cont.innerHTML = list.map(c => `
-    <a href="/clase/${c.id}" class="clase-card">
+  countEl.innerHTML = `<strong>${list.length}</strong> clase${list.length !== 1 ? 's' : ''} encontrada${list.length !== 1 ? 's' : ''}`;
+
+  listEl.innerHTML = list.map(c => `
+    <a href="/clase/${c.id}" class="clase-result">
       <div>
-        <div class="clase-title">${c.titulo}</div>
-        <div class="clase-meta">
-          <div class="clase-meta-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        <div class="clase-result-title">${c.titulo}</div>
+        <div class="clase-result-meta">
+          <div class="meta-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
             ${c.docente_nombre}
           </div>
-          ${c.materia ? `<div class="clase-meta-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          ${c.materia ? `<div class="meta-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+            </svg>
             ${c.materia}
           </div>` : ''}
-          <div class="clase-meta-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <div class="meta-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
             ${c.fecha_grabacion.slice(0, 10)}
           </div>
         </div>
         ${c.preview_transcripcion
-          ? `<div class="clase-preview">${c.preview_transcripcion}…</div>`
+          ? `<div class="clase-result-preview">${c.preview_transcripcion}…</div>`
           : ''}
       </div>
-      <div class="clase-arrow">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+      <div class="arrow-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
       </div>
     </a>
   `).join('');

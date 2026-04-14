@@ -1,88 +1,92 @@
 {% extends "base.html" %}
 {% block title %}Mis Favoritos — EduTranscribe{% endblock %}
 
+{% block extra_css %}
+<style>
+.fav-card {
+  background: var(--white); border-radius: var(--radius-lg);
+  border: 1px solid var(--cream-2); padding: 20px 24px;
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 10px; text-decoration: none;
+  transition: all .2s;
+}
+.fav-card:hover {
+  box-shadow: var(--shadow-md); border-color: #3B3B6E;
+  transform: translateY(-1px);
+}
+.fav-icon {
+  width: 46px; height: 46px; border-radius: var(--radius-lg);
+  background: var(--cream-2); display: flex; align-items: center;
+  justify-content: center; font-size: 22px; flex-shrink: 0;
+  transition: background .2s;
+}
+.fav-card:hover .fav-icon { background: #EAEBF8; }
+.fav-title {
+  font-size: 15px; font-weight: 600; color: var(--ink);
+  margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fav-meta {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-size: 12px; color: var(--ink-3);
+}
+.fav-arrow { color: var(--ink-3); flex-shrink: 0; transition: color .2s; }
+.fav-card:hover .fav-arrow { color: #3B3B6E; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="dash-layout">
 
-  <aside class="sidebar sidebar-est">
-    <div class="sidebar-logo">
-      <div class="nav-logo-mark nav-logo-mark-est">
-        <svg viewBox="0 0 18 18" fill="none"><path d="M2 9h2M5 5h2M5 13h2M9 3h2M9 15h2M13 6h2M13 12h2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </div>
-      <span class="sidebar-logo-text">EduTranscribe</span>
-    </div>
-    <div class="sidebar-user">
-      <div class="sidebar-avatar sidebar-avatar-est">{{ nombre[:2].upper() }}</div>
-      <div>
-        <div class="sidebar-user-name">{{ nombre }}</div>
-        <div class="sidebar-user-role sidebar-role-est">Estudiante</div>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <span class="sidebar-nav-section">Principal</span>
-      <a class="sidebar-nav-item" href="{{ url_for('estudiante_dashboard') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Inicio
-      </a>
-      <a class="sidebar-nav-item" href="{{ url_for('estudiante_buscar') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        Buscar clases
-      </a>
-      <span class="sidebar-nav-section">Mi estudio</span>
-      <a class="sidebar-nav-item active-est" href="{{ url_for('estudiante_favoritos') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-        Favoritos
-      </a>
-      <span class="sidebar-nav-section">Cuenta</span>
-      <a class="sidebar-nav-item" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        Perfil
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <form method="POST" action="{{ url_for('api_logout') }}" style="margin:0;">
-        <button type="submit" class="sidebar-nav-item" style="color:rgba(246,241,231,.5);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Cerrar sesión
-        </button>
-      </form>
-    </div>
-  </aside>
+  {% set active = 'favoritos' %}
+  {% include '_sidebar_estudiante.html' %}
 
   <main class="dash-main dash-main-est">
     <div class="dash-topbar">
       <span class="dash-topbar-title">Mis favoritos</span>
-      <a href="{{ url_for('estudiante_buscar') }}" class="btn btn-primary" style="font-size:13px;padding:9px 18px;">
-        + Buscar clases
+      <a href="{{ url_for('estudiante_buscar') }}" class="btn"
+         style="background:#3B3B6E;color:white;font-size:13px;padding:9px 18px;">
+        + Buscar más clases
       </a>
     </div>
 
     <div class="dash-content">
+
       {% if clases %}
-        {% for clase in clases %}
-        <a href="/clase/{{ clase.id }}" style="text-decoration:none;">
-          <div class="clase-card" style="background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--cream-2);padding:20px 24px;display:flex;align-items:center;gap:16px;margin-bottom:12px;transition:all .2s;cursor:pointer;">
-            <div style="width:44px;height:44px;border-radius:var(--radius);background:var(--cream-2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🎓</div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ clase.titulo }}</div>
-              <div style="font-size:12px;color:var(--ink-3);display:flex;gap:12px;flex-wrap:wrap;">
-                <span>👨‍🏫 {{ clase.docente_nombre }}</span>
-                {% if clase.materia %}<span>📖 {{ clase.materia }}</span>{% endif %}
-                <span>📅 {{ clase.fecha_grabacion[:10] }}</span>
-              </div>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+
+      <p style="font-size:14px;color:var(--ink-3);margin-bottom:20px;">
+        {{ clases|length }} clase{{ 's' if clases|length != 1 else '' }} guardada{{ 's' if clases|length != 1 else '' }}
+      </p>
+
+      {% for clase in clases %}
+      <a href="/clase/{{ clase.id }}" class="fav-card">
+        <div class="fav-icon">🎓</div>
+        <div style="flex:1;min-width:0;">
+          <div class="fav-title">{{ clase.titulo }}</div>
+          <div class="fav-meta">
+            <span>👨‍🏫 {{ clase.docente_nombre }}</span>
+            {% if clase.materia %}<span>📖 {{ clase.materia }}</span>{% endif %}
+            <span>📅 {{ clase.fecha_grabacion[:10] }}</span>
           </div>
-        </a>
-        {% endfor %}
+        </div>
+        <svg class="fav-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </a>
+      {% endfor %}
+
       {% else %}
       <div style="text-align:center;padding:80px 20px;color:var(--ink-3);">
-        <div style="font-size:48px;margin-bottom:16px;opacity:.3;">♡</div>
-        <p style="font-size:16px;font-weight:600;color:var(--ink-2);margin-bottom:8px;">Sin favoritos todavía</p>
-        <p style="font-size:14px;margin-bottom:24px;">Guarda clases que te interesen para estudiarlas después.</p>
-        <a href="{{ url_for('estudiante_buscar') }}" class="btn btn-primary">Buscar clases</a>
+        <div style="font-size:52px;margin-bottom:16px;opacity:.3;">♡</div>
+        <p style="font-size:17px;font-weight:600;color:var(--ink-2);margin-bottom:10px;">
+          Sin favoritos todavía
+        </p>
+        <p style="font-size:14px;margin-bottom:28px;max-width:340px;margin-left:auto;margin-right:auto;">
+          Cuando veas una clase interesante, guárdala con el botón ♡ para encontrarla fácilmente aquí.
+        </p>
+        <a href="{{ url_for('estudiante_buscar') }}" class="btn btn-primary">Explorar clases</a>
       </div>
       {% endif %}
+
     </div>
   </main>
 </div>

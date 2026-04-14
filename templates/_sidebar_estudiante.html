@@ -1,0 +1,74 @@
+<aside class="sidebar sidebar-est">
+  <div class="sidebar-logo">
+    <div class="nav-logo-mark nav-logo-mark-est">
+      <svg viewBox="0 0 18 18" fill="none"><path d="M2 9h2M5 5h2M5 13h2M9 3h2M9 15h2M13 6h2M13 12h2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </div>
+    <span class="sidebar-logo-text">EduTranscribe</span>
+  </div>
+
+  <div class="sidebar-user">
+    <div class="sidebar-avatar sidebar-avatar-est">{{ nombre[:2].upper() }}</div>
+    <div>
+      <div class="sidebar-user-name">{{ nombre }}</div>
+      <div class="sidebar-user-role sidebar-role-est">Estudiante</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <span class="sidebar-nav-section">Principal</span>
+
+    <a class="sidebar-nav-item {% if active == 'inicio' %}active-est{% endif %}"
+       href="{{ url_for('estudiante_dashboard') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/>
+        <rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/>
+        <rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      Inicio
+    </a>
+
+    <a class="sidebar-nav-item {% if active == 'buscar' %}active-est{% endif %}"
+       href="{{ url_for('estudiante_buscar') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="M21 21l-4.35-4.35"/>
+      </svg>
+      Buscar clases
+    </a>
+
+    <span class="sidebar-nav-section">Mi estudio</span>
+
+    <a class="sidebar-nav-item {% if active == 'favoritos' %}active-est{% endif %}"
+       href="{{ url_for('estudiante_favoritos') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+      </svg>
+      Favoritos
+    </a>
+
+    <span class="sidebar-nav-section">Cuenta</span>
+
+    <a class="sidebar-nav-item {% if active == 'perfil' %}active-est{% endif %}"
+       href="{{ url_for('estudiante_perfil') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>
+      Perfil
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <form method="POST" action="{{ url_for('api_logout') }}" style="margin:0;">
+      <button type="submit" class="sidebar-nav-item" style="color:rgba(246,241,231,.5);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16,17 21,12 16,7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Cerrar sesión
+      </button>
+    </form>
+  </div>
+</aside>
