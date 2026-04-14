@@ -99,6 +99,14 @@ def init_db():
             UNIQUE(estudiante_id, clase_id),
             FOREIGN KEY (estudiante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
             FOREIGN KEY (clase_id) REFERENCES clases(id) ON DELETE CASCADE)''')
+        conn.execute('''CREATE TABLE IF NOT EXISTS visitas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            estudiante_id INTEGER NOT NULL,
+            clase_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(estudiante_id, clase_id),
+            FOREIGN KEY (estudiante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+            FOREIGN KEY (clase_id) REFERENCES clases(id) ON DELETE CASCADE)''')
         conn.commit()
 
 # ── Whisper ───────────────────────────────────────────────────────────────────
@@ -299,6 +307,9 @@ def estudiante_dashboard():
         total_favoritos = conn.execute(
             'SELECT COUNT(*) as n FROM favoritos WHERE estudiante_id=?',
             (current_user.id,)).fetchone()['n']
+        total_vistas = conn.execute(
+            'SELECT COUNT(*) as n FROM visitas WHERE estudiante_id=?',
+            (current_user.id,)).fetchone()['n']
         total_publicas = conn.execute(
             'SELECT COUNT(*) as n FROM clases WHERE es_publica=1').fetchone()['n']
         total_docentes = conn.execute(
@@ -308,7 +319,7 @@ def estudiante_dashboard():
             JOIN usuarios u ON c.docente_id=u.id
             WHERE c.es_publica=1 ORDER BY c.fecha_grabacion DESC LIMIT 6''').fetchall()
     return render_template('estudiante.html', nombre=current_user.nombre,
-        total_vistas=0, total_favoritos=total_favoritos,
+        total_vistas=total_vistas, total_favoritos=total_favoritos,
         total_publicas=total_publicas, total_docentes=total_docentes,
         clases_recientes=clases_recientes)
 
@@ -361,6 +372,14 @@ def ver_clase(clase_id):
             fav = conn.execute('SELECT id FROM favoritos WHERE estudiante_id=? AND clase_id=?',
                 (current_user.id, clase_id)).fetchone()
             is_favorite = fav is not None
+            # Registrar visita única (UNIQUE constraint evita duplicados)
+            try:
+                conn.execute(
+                    'INSERT INTO visitas (estudiante_id, clase_id) VALUES (?,?)',
+                    (current_user.id, clase_id))
+                conn.commit()
+            except:
+                pass  # Ya visitada antes — no hacer nada
     clase_dict = dict(clase)
     clase_dict['tags'] = [t['tag'] for t in tags]
     es_docente = current_user.rol == 'docente' and clase['docente_id'] == current_user.id
