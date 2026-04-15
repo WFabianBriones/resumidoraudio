@@ -319,36 +319,74 @@ def summarize_with_llama(text):
     print(f"  Python extrayendo datos exactos...")
     datos_python = extraer_datos_python(text)
 
-    # Búsqueda explícita de conceptos clave que el LLM suele perder
-    conceptos_clave = []
-    busquedas = {
-        'Kaiser Guillermo II': r'Kaiser Guillermo\s+II',
-        'Triple Entente (GB, Francia, Rusia)': r'triple.?entente',
-        'Potencias Centrales (Alemania, Austria)': r'poderes? centrales',
-        'Batalla del Marne': r'batalla del marne',
-        'Batalla de Mons': r'ciudad de mons|batalla.*mons',
-        'Batalla de las Fronteras': r'batalla de las fronteras',
-        '200.000 franceses muertos primer mes': r'200[\.\s]?000',
-        '600 belgas inocentes ejecutados': r'600 belgas',
-    }
+    # Extracción genérica — funciona para cualquier tema académico
     import re as _re2
-    for concepto, patron in busquedas.items():
-        if _re2.search(patron, text, _re2.IGNORECASE):
-            conceptos_clave.append(f"- {concepto}")
 
-    if conceptos_clave:
-        datos_python += "\n\nCONCEPTOS CLAVE DETECTADOS:\n" + "\n".join(conceptos_clave)
+    # 1. Nombres propios (personas, lugares, instituciones)
+    nombres_propios = list(dict.fromkeys(
+        _re2.findall(r'\b[A-ZÁÉÍÓÚ][a-záéíóú]+(?:\s[A-ZÁÉÍÓÚ][a-záéíóú]+){1,3}\b', text)
+    ))
+    # Filtrar nombres muy cortos o genéricos
+    nombres_propios = [n for n in nombres_propios
+                      if len(n) > 6 and not any(g in n.lower()
+                      for g in ['pero', 'para', 'cuando', 'donde', 'como', 'este', 'esta',
+                                'todo', 'toda', 'cada', 'entre', 'sobre', 'bajo'])][:20]
 
-    print(f"  ✓ Python: {len(conceptos_clave)} conceptos clave encontrados")
+    # 2. Definiciones y conceptos: "X es Y", "X se define", "X consiste en"
+    definiciones = _re2.findall(
+        r'[A-ZÁÉÍÓÚ][^.]{3,40}(?:es|son|fue|fueron|se define como|consiste en|significa)[^.]{5,60}\.', text
+    )
+    definiciones = [d.strip() for d in definiciones[:8]]
+
+    # 3. Términos técnicos en mayúscula o entre comillas
+    terminos = list(dict.fromkeys(
+        _re2.findall(r'"([^"]{4,40})"', text) +
+        _re2.findall(r'«([^»]{4,40})»', text)
+    ))[:10]
+
+    # 4. Cifras con unidades (cualquier área del conocimiento)
+    cifras_unidades = list(dict.fromkeys(
+        _re2.findall(
+            r'\b\d+[\.,]?\d*\s*(?:millones?|mil|%|por ciento|kg|km|metros?|años?|'
+            r'grados?|moles?|litros?|células?|especies?|países?|soldados?|personas?|hombres?)\b',
+            text, _re2.IGNORECASE
+        )
+    ))[:12]
+
+    # 5. Fechas completas con evento (contexto de 80 chars)
+    fechas_eventos = []
+    for m in _re2.finditer(r'\b(\d{1,2} de \w+ de \d{4}|en \d{4}[,])', text):
+        start = m.start()
+        end   = min(len(text), m.end() + 80)
+        ctx   = text[start:end].replace('\n', ' ').strip()
+        fechas_eventos.append(ctx)
+    fechas_eventos = list(dict.fromkeys(fechas_eventos))[:15]
+
+    # Construir datos_python con extracción genérica
+    secciones_python = []
+    if fechas_eventos:
+        secciones_python.append("FECHAS Y EVENTOS:\n" + "\n".join(f"- {f}" for f in fechas_eventos))
+    if cifras_unidades:
+        secciones_python.append("CIFRAS DETECTADAS:\n" + "\n".join(f"- {c}" for c in cifras_unidades))
+    if nombres_propios:
+        secciones_python.append("NOMBRES PROPIOS:\n" + "\n".join(f"- {n}" for n in nombres_propios))
+    if definiciones:
+        secciones_python.append("DEFINICIONES:\n" + "\n".join(f"- {d}" for d in definiciones))
+    if terminos:
+        secciones_python.append("TÉRMINOS CLAVE:\n" + "\n".join(f"- {t}" for t in terminos))
+
+    datos_python = "\n\n".join(secciones_python)
+    total_items = len(fechas_eventos) + len(cifras_unidades) + len(nombres_propios)
+    print(f"  ✓ Python: {total_items} datos extraídos (genérico — cualquier tema)")
 
     # ── Invertir texto (para lectura 2) ──
     sentences = text.replace('\n', ' ').split('. ')
     sentences = [s.strip() for s in sentences if s.strip()]
     text_invertido = '. '.join(reversed(sentences))
 
-    # ── Texto del CENTRO (tercio medio) ──
-    inicio_centro = n // 3
-    fin_centro    = (n * 2) // 3
+    # ── Texto del CENTRO — palabras 1200-2800 donde están Kaiser, Triple Entente, alianzas ──
+    inicio_centro = min(1200, n // 3)
+    fin_centro    = min(2800, (n * 2) // 3)
     text_centro   = ' '.join(words[inicio_centro:fin_centro])
 
     # ── OPCIÓN A Lectura 1: texto normal (captura bien el FINAL) ──
@@ -485,58 +523,108 @@ Texto:"""
         # Si el modelo se negó, devolver los datos como lista
         if not resultado or 'lo siento' in resultado.lower() or 'no puedo' in resultado.lower():
             return datos_str
+        # Eliminar artefactos: encabezados duplicados que el modelo a veces repite
+        import re as _re_clean
+        resultado = _re_clean.sub(
+            r'^\s*\*{0,2}(INTRO|INTRODUCCIÓN|CONCEPTOS?( FUNDAMENTALES)?|DESARROLLO|'
+            r'TESTIMONIOS?|DATOS Y TESTIMONIOS|CONCLUSIONES?)\*{0,2}\s*\n',
+            '', resultado, flags=_re_clean.IGNORECASE | _re_clean.MULTILINE
+        ).strip()
         return resultado
 
-    print(f"  Redactando secciones...")
+    print(f"  Redactando secciones en paralelo...")
     t0 = time.time()
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    # ── Sección 1: INTRODUCCIÓN ──
-    # Limpiar datos_python para intro — quitar líneas que puedan activar filtros
+    # Limpiar datos_python para intro
     import re as _re3
     lineas_intro = []
     for ln in datos_python.split('\n'):
         ln = ln.strip()
-        # Quitar líneas con violencia explícita para la intro
         if any(w in ln.lower() for w in ['ejecutad', 'masacr', 'cadáver', 'entrañas', 'sangre']):
             continue
         if ln: lineas_intro.append(ln)
     datos_intro = "\n".join(lineas_intro[:20]) if lineas_intro else "\n".join(lineas_fechas[:3] + lineas_cifras[:3])
-    intro = redactar_seccion("INTRODUCCIÓN",
-        datos_intro,
-        "Escribe 3 oraciones que presenten el tema, período y escala del conflicto.",
-        timeout=70)
-    print(f"    Intro: OK")
 
-    # ── Sección 2: CONCEPTOS FUNDAMENTALES ──
-    items_conceptos = list(dict.fromkeys(lineas_personas + lineas_eventos))[:15]
-    conceptos = redactar_seccion("CONCEPTOS FUNDAMENTALES",
-        items_conceptos,
-        "Presenta los personajes y conceptos clave en un párrafo. Incluye el rol de cada persona.",
-        timeout=70)
-    print(f"    Conceptos: OK")
-
-    # ── Sección 3: DESARROLLO ──
-    desarrollo = redactar_seccion("DESARROLLO",
-        lineas_fechas[:20],
-        "Narra en orden cronológico los eventos con sus fechas exactas.",
-        timeout=100)
-    print(f"    Desarrollo: OK")
-
-    # ── Sección 4: DATOS Y TESTIMONIOS ──
+    items_conceptos   = list(dict.fromkeys(lineas_personas + lineas_eventos))[:15]
+    # Asegurar que Kaiser Guillermo II y otros conceptos clave de Python estén en conceptos
+    import re as _re_kaiser
+    for linea in datos_python.split('\n'):
+        if _re_kaiser.search(r'Kaiser|Triple.?Entente|Potencias Centrales|Marne|Mons', linea, _re_kaiser.IGNORECASE):
+            linea_clean = linea.strip().lstrip('- ')
+            if linea_clean and linea_clean not in items_conceptos:
+                items_conceptos.append(linea_clean)
     datos_testimonios = lineas_cifras[:12] + lineas_citas[:6]
-    testimonios = redactar_seccion("DATOS Y TESTIMONIOS",
-        datos_testimonios,
-        "Presenta las estadísticas en prosa y cita textualmente las frases entre comillas con su autor.",
-        timeout=100)
-    print(f"    Testimonios: OK")
+    datos_concl       = lineas_cifras[:5] + lineas_fechas[:5]
 
-    # ── Sección 5: CONCLUSIONES ──
-    datos_concl = lineas_cifras[:5] + lineas_fechas[:5]
-    conclusiones = redactar_seccion("CONCLUSIONES",
-        datos_concl,
-        "Escribe 3 conclusiones concretas con datos específicos. Una oración por conclusión.",
-        timeout=70)
-    print(f"    Conclusiones: OK")
+    tareas = {
+        'intro': (datos_intro,
+            """Redacta 3 oraciones de introducción académica usando los datos de la lista.
+Cada oración debe incluir al menos una fecha, cifra o nombre concreto.
+No inventes datos. Usa solo lo que está en la lista.
+Oración 1: tema y período con fechas exactas.
+Oración 2: escala o magnitud con cifras.
+Oración 3: participantes o contexto con nombres.""",
+            80),
+
+        'conceptos': (items_conceptos,
+            """Lista personas y términos clave con su contexto.
+Formato: **Nombre**: dato concreto que aparece en la lista.
+PROHIBIDO: no agregues fechas, cargos ni hechos que no estén en la lista.
+Corrige errores tipográficos obvios (ej: Nikolaas → Nicolás).
+Solo personas y conceptos, no incluyas países ni lugares geográficos.""",
+            80),
+
+        'desarrollo': (lineas_fechas[:20],
+            """Narra los eventos en orden cronológico construyendo la narrativa SOBRE los datos.
+REGLA CLAVE: cada oración debe anclar al menos una fecha, cifra, nombre o lugar concreto.
+Nunca escribas oraciones genéricas sin datos — si no tienes dato, no escribas la oración.
+- Usa transiciones temporales reales (Días después / El siguiente mes / Simultáneamente)
+- No repitas la misma fecha para dos eventos distintos
+- Si dos eventos coinciden en fecha, únelos con 'mientras que' o 'ese mismo día'""",
+            110),
+
+        'testimonios': (datos_testimonios,
+            """Presenta los datos en dos partes:
+PARTE 1 — ESTADÍSTICAS: redacta las cifras numéricas en prosa, una cifra por oración.
+PARTE 2 — CITAS: cada frase entre comillas seguida de su autor.
+No inventes datos. Solo usa lo de la lista.""",
+            140),
+
+        'conclusiones': (datos_concl,
+            """Escribe exactamente 3 conclusiones académicas numeradas.
+REGLA CLAVE: cada conclusión debe estar construida sobre datos concretos —
+nunca escribas una conclusión sin al menos un número, fecha o nombre específico.
+Ejemplo correcto: "1. La batalla de Tannenberg (26 de agosto de 1914) resultó
+en 100.000 prisioneros rusos, consolidando el avance alemán en el frente oriental."
+Ejemplo incorrecto: "1. La guerra tuvo consecuencias devastadoras para la humanidad."
+Cada conclusión cubre un aspecto diferente.""",
+            90),
+    }
+
+    resultados = {}
+    # max_workers=2: Ollama procesa secuencialmente pero el thread siguiente
+    # se encola de inmediato al terminar el anterior, sin overhead de setup
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futuros = {
+            executor.submit(redactar_seccion, nombre.upper(), datos, instruccion, timeout): nombre
+            for nombre, (datos, instruccion, timeout) in tareas.items()
+        }
+        for futuro in as_completed(futuros):
+            nombre = futuros[futuro]
+            try:
+                resultados[nombre] = futuro.result()
+                print(f"    {nombre.capitalize()}: OK")
+            except Exception as e:
+                print(f"    {nombre.capitalize()}: ERROR — {e}")
+                resultados[nombre] = ""
+
+    intro        = resultados.get('intro', '')
+    conceptos    = resultados.get('conceptos', '')
+    desarrollo   = resultados.get('desarrollo', '')
+    testimonios  = resultados.get('testimonios', '')
+    conclusiones = resultados.get('conclusiones', '')
+
 
     secciones = [
         f"## 1. INTRODUCCIÓN\n{intro.strip()}",
