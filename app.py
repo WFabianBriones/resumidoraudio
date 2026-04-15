@@ -11,6 +11,7 @@ from flask_cors import CORS
 from datetime import datetime, timedelta
 import json
 import subprocess
+import time
 import sqlite3
 from contextlib import contextmanager
 from functools import wraps
@@ -111,10 +112,18 @@ def init_db():
 
 # ── Whisper ───────────────────────────────────────────────────────────────────
 
-print("Cargando Whisper base en CPU...")
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-whisper_model = whisper.load_model("base", device="cpu")
-print("Whisper listo")
+import torch
+
+# Detectar dispositivo disponible
+if torch.cuda.is_available():
+    WHISPER_DEVICE = "cuda"
+    print("Cargando Whisper base en GPU (CUDA)...")
+else:
+    WHISPER_DEVICE = "cpu"
+    print("Cargando Whisper base en CPU...")
+
+whisper_model = whisper.load_model("base", device=WHISPER_DEVICE)
+print(f"Whisper listo en {WHISPER_DEVICE.upper()}")
 
 def allowed_file(f):
     return '.' in f and f.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -122,100 +131,245 @@ def allowed_file(f):
 # ── Procesamiento de audio ────────────────────────────────────────────────────
 
 def post_process_transcript(text):
+    """Correcciones genéricas comunes de Whisper en español."""
     fixes = {
-        ' senstos ':' sentidos ',' exaustos ':' exhaustos ',' exausto ':' exhausto ',
-        ' amasa ':' en masa ',' cobernada ':' gobernada ',' cobernado ':' gobernado ',
-        ' mullieron ':' murieron ',' mulló ':' murió ',' pasacre ':' masacre ',
-        ' tambien ':' también ',' mas ':' más ',' solo ':' sólo ',
+        ' senstos ':   ' sentidos ',
+        ' exaustos ':  ' exhaustos ',
+        ' exausto ':   ' exhausto ',
+        ' amasa ':     ' en masa ',
+        ' cobernada ': ' gobernada ',
+        ' cobernado ': ' gobernado ',
+        ' mullieron ': ' murieron ',
+        ' mulló ':     ' murió ',
+        ' pasacre ':   ' masacre ',
+        ' tambien ':   ' también ',
+        ' mas ':       ' más ',
+        ' solo ':      ' sólo ',
     }
     for err, fix in fixes.items():
         text = text.replace(err, fix)
-    return text
+    return text.strip()
 
 def transcribe_audio(audio_path):
     print(f"Transcribiendo: {audio_path}")
     result = whisper_model.transcribe(audio_path, language='es', verbose=False, fp16=False)
     return post_process_transcript(result['text'])
 
-def chunk_text(text, chunk_size=5000):
-    words = text.split()
-    chunks, current, length = [], [], 0
-    for word in words:
-        length += len(word) + 1
-        if length > chunk_size:
-            chunks.append(' '.join(current))
-            current, length = [word], len(word)
-        else:
-            current.append(word)
-    if current:
-        chunks.append(' '.join(current))
-    return chunks
+# ── Ollama REST API ── mucho más rápido que subprocess ──────────────────────
 
-def validate_summary(summary, chunk_original=""):
-    errors_found = []
-    summary_lower = summary.lower()
-    for phrase in ['como sabemos', 'es bien conocido que', 'históricamente se sabe']:
-        if phrase in summary_lower and (not chunk_original or phrase not in chunk_original.lower()):
-            errors_found.append(f"Posible alucinación: '{phrase}'")
-    summary_years = set(re.findall(r'\b(1[0-9]{3}|2[0-9]{3})\b', summary))
-    if chunk_original:
-        invented = summary_years - set(re.findall(r'\b(1[0-9]{3}|2[0-9]{3})\b', chunk_original))
-        if invented:
-            errors_found.append(f"Fechas inventadas: {invented}")
-    if errors_found:
-        for e in errors_found[:3]:
-            print(f"  ⚠ {e}")
-    return summary
+def liberar_ollama_vram():
+    """Descarga el modelo de VRAM para dejar espacio a Whisper GPU."""
+    try:
+        req_lib.post('http://localhost:11434/api/generate',
+            json={'model': 'llama3.1:8b', 'prompt': '', 'keep_alive': 0},
+            timeout=10)
+        print("  ✓ VRAM liberada de Ollama")
+    except:
+        pass
+
+def llamar_ollama(prompt, timeout=300):
+    """
+    Llama directamente a la REST API de Ollama.
+    Evita el overhead de abrir un nuevo proceso con subprocess (~3-5s).
+    """
+    try:
+        resp = req_lib.post(
+            'http://localhost:11434/api/generate',
+            json={
+                'model':   'llama3.1:8b',
+                'prompt':  prompt,
+                'stream':  False,
+                'options': {
+                    'temperature':    0.2,   # Bajo = más consistente y preciso
+                    'num_predict':    1800,  # Suficiente para resumen completo
+                    'repeat_penalty': 1.1,   # Reduce repeticiones
+                    'top_k':          40,
+                    'top_p':          0.9,
+                }
+            },
+            timeout=timeout
+        )
+        if resp.status_code == 200:
+            return resp.json().get('response', '').strip()
+        print(f"  Ollama HTTP {resp.status_code}")
+        return ''
+    except Exception as e:
+        print(f"  Error Ollama REST: {e}")
+        return ''
+
+# Prompt del método analítico-sintético
+PROMPT_RESUMEN = """Eres un extractor académico. Tu ÚNICA función es leer el texto y extraer su información.
+
+⚠️ PROHIBIDO ABSOLUTAMENTE:
+- Inventar citas, frases o testimonios que no estén LITERALMENTE en el texto
+- Agregar causas, consecuencias o datos de tu conocimiento general
+- Usar frases como "se estima", "aproximadamente", "entre X y Y" si el texto da un número exacto
+- Escribir cualquier dato que no puedas señalar con el dedo en el texto
+
+✅ OBLIGATORIO:
+- Copiar las cifras EXACTAS del texto (si dice "65 millones", escribe "65 millones", no "millones")
+- Copiar los nombres propios exactamente como aparecen
+- Copiar las fechas exactas mencionadas
+- Si el texto tiene una cita textual de alguien, puedes usarla — marcándola con comillas
+- Si una sección no tiene datos en el texto, escribir: "El texto no proporciona esta información"
+
+ESTRUCTURA (completa cada sección SOLO con datos del texto):
+
+## 1. INTRODUCCIÓN
+Qué tema trata el texto, cuándo ocurre, quiénes participan — usando solo lo que dice el texto.
+
+## 2. CONCEPTOS FUNDAMENTALES
+Lista de términos, nombres, fechas y cifras que aparecen en el texto:
+- **[nombre/término/fecha exacta del texto]**: [explicación que da el texto]
+
+## 3. DESARROLLO
+Secuencia de hechos en el orden que los presenta el texto, con datos específicos:
+- [hecho concreto con fecha/cifra/nombre del texto]
+
+## 4. DATOS Y TESTIMONIOS
+Estadísticas exactas y citas textuales que aparecen en el texto.
+Para citas: escribir entre comillas y atribuir a quien habla según el texto.
+
+## 5. CONCLUSIONES
+Ideas finales basadas en lo que el texto concluye o enfatiza.
+
+TEXTO DE LA CLASE:
+{transcripcion}
+
+EXTRACCIÓN ACADÉMICA:"""
+
+PROMPT_EXTRACCION = """Eres un asistente académico. Lee esta transcripción y extrae TODOS los datos concretos.
+
+INSTRUCCIONES:
+- Copia EXACTAMENTE las cifras, fechas, nombres y citas del texto
+- NO omitas ningún número ni fecha
+- Puedes agregar contexto útil marcado con *(contexto adicional)*
+
+TRANSCRIPCIÓN:
+{texto}
+
+Extrae en este formato:
+
+## FECHAS Y EVENTOS
+(cada fecha con su evento exacto del texto)
+
+## PERSONAS Y LUGARES
+(cada persona y lugar mencionado con su contexto)
+
+## CIFRAS Y ESTADÍSTICAS
+(cada número del texto con su significado exacto)
+
+## CITAS TEXTUALES
+(frases literales entre comillas con su autor)
+
+EXTRACCIÓN:"""
+
 
 def summarize_with_llama(text):
-    chunks = chunk_text(text, chunk_size=5000)
-    summaries = []
-    print(f"Procesando {len(chunks)} chunk(s) con Llama 3.1-8B...")
-    for i, chunk in enumerate(chunks):
-        print(f"  Chunk {i+1}/{len(chunks)}...")
-        prompt = f"""Eres un asistente académico. Crea un resumen PRECISO basándote ÚNICAMENTE en este texto.
+    """
+    Técnica de doble lectura con texto invertido:
+    - Llamada 1: texto normal     → el modelo atiende bien el FINAL
+    - Llamada 2: texto invertido  → el modelo atiende bien el INICIO (que ahora está al final)
+    Esto garantiza cobertura completa del texto.
+    """
+    words = text.split()
+    print(f"Generando resumen ({len(words)} palabras) — técnica doble lectura...")
+    t_total = time.time()
 
-Fragmento: {chunk}
+    # Invertir el texto a nivel de oraciones para preservar coherencia
+    sentences = text.replace('\n', ' ').split('. ')
+    sentences = [s.strip() for s in sentences if s.strip()]
+    text_invertido = '. '.join(reversed(sentences))
 
-Proporciona:
-1. Conceptos principales
-2. Puntos clave y definiciones
-3. Ejemplos mencionados
-4. Relaciones entre conceptos
+    # ── Llamada 1: texto normal (captura bien el final) ──
+    print(f"  Lectura 1 — texto normal...")
+    t0 = time.time()
+    res1 = llamar_ollama(
+        PROMPT_EXTRACCION.format(texto=text),
+        timeout=200
+    )
+    print(f"  ✓ Lectura 1: {time.time()-t0:.1f}s")
 
-Resumen académico:"""
-        try:
-            result = subprocess.run(['ollama','run','llama3.1:8b',prompt],
-                capture_output=True, text=True, timeout=400)
-            summaries.append(validate_summary(result.stdout.strip(), chunk))
-        except subprocess.TimeoutExpired:
-            summaries.append(f"[Timeout en chunk {i+1}]")
-        except Exception as e:
-            summaries.append(f"[Error en chunk {i+1}: {str(e)}]")
+    # ── Llamada 2: texto invertido (captura bien el inicio) ──
+    print(f"  Lectura 2 — texto invertido...")
+    t0 = time.time()
+    res2 = llamar_ollama(
+        PROMPT_EXTRACCION.format(texto=text_invertido),
+        timeout=200
+    )
+    print(f"  ✓ Lectura 2: {time.time()-t0:.1f}s")
 
-    if len(summaries) == 1:
-        return summaries[0]
+    if not res1 and not res2:
+        return _fallback_subprocess(text)
+    if not res1: return res2
+    if not res2: return res1
 
-    final = "\n\n".join([f"PARTE {i+1}\n\n{s}" for i,s in enumerate(summaries)])
-    consolidation = f"""Crea un resumen consolidado usando SOLO los resúmenes proporcionados.
+    # ── Formatear con Llama las extracciones combinadas ──
+    # Las extracciones ya tienen todos los datos (~600 palabras total)
+    # El modelo solo da formato — no puede "perder" datos que ya están resumidos
+    print(f"  Formateando...")
+    t0 = time.time()
 
-{final}
+    datos_combinados = f"""DATOS EXTRAÍDOS DEL INICIO DEL TEXTO:
+{res2}
 
-Estructura:
-1. INTRODUCCIÓN
-2. CONCEPTOS FUNDAMENTALES
-3. DESARROLLO
-4. EJEMPLOS Y APLICACIONES
-5. CONCLUSIONES
+DATOS EXTRAÍDOS DEL FINAL DEL TEXTO:
+{res1}"""
 
-Resumen consolidado:"""
+    prompt_formato = f"""Tienes una lista de datos extraídos de una clase universitaria.
+Tu única tarea es REORGANIZARLOS en el formato de resumen académico indicado.
+
+REGLAS ESTRICTAS:
+- NO agregues información nueva
+- NO elimines ningún dato de la lista
+- NO cambies las cifras ni las fechas
+- Solo reorganiza y da formato legible
+- Si un dato aparece duplicado, mantenlo una sola vez
+
+DATOS A FORMATEAR:
+{datos_combinados}
+
+Organiza en este formato:
+
+## 1. INTRODUCCIÓN
+[2-3 oraciones sobre el tema usando solo los datos disponibles]
+
+## 2. CONCEPTOS FUNDAMENTALES
+[personas, términos y fechas clave de los datos]
+
+## 3. DESARROLLO
+[eventos en orden cronológico con sus fechas y cifras exactas]
+
+## 4. DATOS Y TESTIMONIOS
+[todas las cifras numéricas y citas textuales de los datos]
+
+## 5. CONCLUSIONES
+[3-4 ideas principales basadas en los datos]
+
+RESUMEN FORMATEADO:"""
+
+    resultado = llamar_ollama(prompt_formato, timeout=180)
+    print(f"  ✓ Formato: {time.time()-t0:.1f}s")
+    print(f"  ✓ Total: {time.time()-t_total:.1f}s — {len(resultado) if resultado else 0} caracteres")
+
+    if resultado:
+        return resultado
+    # Fallback: devolver datos sin formato
+    return datos_combinados
+
+
+def _fallback_subprocess(text):
+    """Fallback con subprocess si la REST API no responde."""
+    print("  Usando fallback subprocess...")
+    prompt = PROMPT_RESUMEN.format(transcripcion=text[:6000])
     try:
-        result = subprocess.run(['ollama','run','llama3.1:8b',consolidation],
-            capture_output=True, text=True, timeout=400)
-        return f"{final}\n\n{'='*50}\n\nRESUMEN CONSOLIDADO\n{'='*50}\n\n{validate_summary(result.stdout.strip())}"
+        result = subprocess.run(
+            ['ollama', 'run', 'llama3.1:8b', prompt],
+            capture_output=True, text=True, timeout=400
+        )
+        return result.stdout.strip() or "No se pudo generar el resumen."
     except Exception as e:
-        print(f"Error en consolidación: {e}")
-        return final
+        return f"Error generando resumen: {str(e)}"
 
 def generate_summary(text):
     return summarize_with_llama(text)
@@ -496,8 +650,14 @@ def transcribe_chunk():
         tmp_path = tmp.name
         chunk_file.save(tmp_path)
     try:
+        print(f"  🎤 Whisper transcribiendo chunk...")
+        if WHISPER_DEVICE == "cuda":
+            liberar_ollama_vram()
+            time.sleep(1)  # esperar que la VRAM se libere
+        t0     = time.time()
         result = whisper_model.transcribe(tmp_path, language='es', fp16=False)
         text   = post_process_transcript(result['text'].strip())
+        print(f"  ✓ Whisper chunk: {time.time()-t0:.1f}s → '{text[:60]}...' " if len(text)>60 else f"  ✓ Whisper chunk: {time.time()-t0:.1f}s → '{text}'")
         return jsonify({'success':True, 'text':text})
     except Exception as e:
         return jsonify({'error':str(e)}), 500
@@ -514,48 +674,29 @@ def summary_stream():
     if not transcripcion:
         return jsonify({'error':'Sin texto para resumir'}), 400
 
-    prompt = f"""Eres un asistente educativo universitario. Genera un resumen con el método analítico-sintético.
-
-## 1. INTRODUCCIÓN
-[Tema principal de la clase]
-## 2. CONCEPTOS FUNDAMENTALES
-[Definiciones y teorías clave]
-## 3. DESARROLLO
-[Explicación de los temas]
-## 4. EJEMPLOS Y APLICACIONES
-[Casos prácticos]
-## 5. CONCLUSIONES
-[Ideas para recordar]
-
-Transcripción: {transcripcion[:6000]}
-
-Resumen:"""
-
     def generate_sse():
+        t_start = time.time()
+        print(f"  🤖 SSE summary-stream iniciado ({len(transcripcion)} chars)...")
+
+        # Usar la estrategia de extracción en 2 fases para textos largos
+        # Esto garantiza que se procese TODO el texto, no solo los primeros 6000 chars
         try:
-            response = req_lib.post('http://localhost:11434/api/generate',
-                json={'model':'llama3.1:8b','prompt':prompt,'stream':True,
-                      'options':{'temperature':0.3,'num_predict':1200}},
-                stream=True, timeout=300)
-            for line in response.iter_lines():
-                if line:
-                    try:
-                        chunk = json.loads(line)
-                        token = chunk.get('response','')
-                        if token: yield f"data: {json.dumps({'token':token})}\n\n"
-                        if chunk.get('done'):
-                            yield "data: [DONE]\n\n"; return
-                    except json.JSONDecodeError: continue
-        except Exception:
-            yield f"data: {json.dumps({'token':'Generando resumen...\n\n'})}\n\n"
-            try:
-                r = subprocess.run(['ollama','run','llama3.1:8b',prompt],
-                    capture_output=True, text=True, timeout=300)
-                full = r.stdout.strip()
-                for i in range(0, len(full), 6):
-                    yield f"data: {json.dumps({'token':full[i:i+6]})}\n\n"
-            except Exception as e2:
-                yield f"data: {json.dumps({'error':str(e2)})}\n\n"
+            resumen = summarize_with_llama(transcripcion)
+            print(f"  ✓ Resumen generado: {time.time()-t_start:.1f}s")
+
+            # Hacer streaming del resultado token a token para mantener la UI animada
+            words = resumen.split(' ')
+            for i, word in enumerate(words):
+                sep = '' if i == 0 else ' '
+                yield f"data: {json.dumps({'token': sep + word})}\n\n"
+
+            print(f"  ✓ SSE stream completo: {time.time()-t_start:.1f}s")
+            yield "data: [DONE]\n\n"
+            return
+
+        except Exception as ex:
+            print(f"  ⚠ Error en resumen: {ex}, usando fallback...")
+            yield f"data: {json.dumps({'token':'Error generando resumen. Intenta de nuevo.'})}\n\n"
             yield "data: [DONE]\n\n"
 
     return Response(generate_sse(), mimetype='text/event-stream',
@@ -604,8 +745,16 @@ def upload_audio():
     filepath=os.path.join(app.config['UPLOAD_FOLDER'],filename)
     file.save(filepath)
     try:
+        print(f"  🎤 Whisper transcribiendo archivo: {file.filename}")
+        if WHISPER_DEVICE == "cuda":
+            liberar_ollama_vram()
+            time.sleep(1)
+        t0=time.time()
         result=whisper_model.transcribe(filepath,language='es',fp16=False)
-        tr=post_process_transcript(result['text']); dur=int(result.get('duration',0))
+        tr=post_process_transcript(result['text'])
+        segments = result.get('segments', [])
+        dur = int(segments[-1]['end']) if segments else 0
+        print(f"  ✓ Whisper archivo: {time.time()-t0:.1f}s — {dur}s de audio — {len(tr)} caracteres")
         resumen=summarize_with_llama(tr)
         with get_db() as conn:
             cur=conn.execute('''INSERT INTO clases

@@ -236,7 +236,6 @@ canvas#waveform {
             <div class="rec-controls">
               <div class="rec-timer" id="recTimer">00:00</div>
               <button class="btn-record" id="recBtn" onclick="toggleRecording()" title="Iniciar / Detener grabación">
-                <!-- Icono mic -->
                 <svg id="recIcon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round">
                   <path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/>
                   <path d="M19 10v2a7 7 0 01-14 0v-2"/>
@@ -244,6 +243,15 @@ canvas#waveform {
                 </svg>
               </button>
               <span class="rec-hint" id="recHint">Clic para grabar</span>
+              <button id="recCancelBtn"
+                onclick="cancelarGrabacion()"
+                style="display:none;margin-top:6px;background:none;border:1px solid var(--danger);
+                       color:var(--danger);border-radius:var(--radius);padding:5px 12px;
+                       font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;"
+                onmouseover="this.style.background='var(--danger)';this.style.color='white'"
+                onmouseout="this.style.background='none';this.style.color='var(--danger)'">
+                ✕ Cancelar
+              </button>
             </div>
           </div>
 
@@ -354,9 +362,18 @@ canvas#waveform {
             <div class="progress-bar-bg"><div class="progress-bar-fill" id="upProgressBar"></div></div>
           </div>
 
-          <div style="margin-top:20px; display:flex; gap:12px; align-items:center;">
+          <div style="margin-top:20px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
             <button class="btn btn-primary" id="upProcessBtn" onclick="processUpload()" disabled>
               Procesar audio
+            </button>
+            <button id="upCancelBtn"
+              onclick="cancelarSubida()"
+              style="display:none;background:none;border:1px solid var(--danger);
+                     color:var(--danger);border-radius:var(--radius);padding:9px 16px;
+                     font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;"
+              onmouseover="this.style.background='var(--danger)';this.style.color='white'"
+              onmouseout="this.style.background='none';this.style.color='var(--danger)'">
+              ✕ Cancelar proceso
             </button>
             <span id="upStatus" style="font-size:13px; color:var(--ink-3);"></span>
           </div>
@@ -584,6 +601,7 @@ async function startRecording() {
   btn.classList.add('recording');
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="white" width="22" height="22"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
   document.getElementById('recHint').textContent = 'Clic para detener';
+  document.getElementById('recCancelBtn').style.display = 'block';
 
   // ── Web Speech API: transcripción instantánea visual ──
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -655,6 +673,7 @@ async function stopRecording() {
   btn.classList.remove('recording');
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`;
   document.getElementById('recHint').textContent = 'Clic para grabar';
+  document.getElementById('recCancelBtn').style.display = 'none';
 
   // Clear cursor, show whisper refining
   const body = document.getElementById('transcriptBody');
@@ -865,6 +884,7 @@ async function processUpload() {
   const btn = document.getElementById('upProcessBtn');
   btn.disabled = true;
   btn.textContent = 'Procesando…';
+  document.getElementById('upCancelBtn').style.display = 'block';
 
   document.getElementById('upResults').style.display   = 'none';
   document.getElementById('upSavePanel').classList.remove('show');
@@ -1097,5 +1117,62 @@ window.addEventListener('DOMContentLoaded', () => {
     showTabByName('biblioteca');
   }
 });
+
+// ════════════════════════════════════════════════
+//  CANCELAR PROCESOS
+// ════════════════════════════════════════════════
+function cancelarGrabacion() {
+  if (!confirm('¿Cancelar la grabación? Se perderá todo lo procesado hasta ahora.')) return;
+
+  // Detener todo sin generar resumen
+  isRecording = false;
+  stopTimer();
+  stopWaveform();
+  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.onstop = null; // quitar el handler para no procesar
+    mediaRecorder.stop();
+  }
+  if (audioStream) audioStream.getTracks().forEach(t => t.stop());
+  audioChunks = []; confirmedText = '';
+
+  // Reset UI
+  const btn = document.getElementById('recBtn');
+  btn.classList.remove('recording');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M12 2C10.3 2 9 3.3 9 5v7c0 1.7 1.3 3 3 3s3-1.3 3-3V5c0-1.7-1.3-3-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`;
+  document.getElementById('recHint').textContent = 'Clic para grabar';
+  document.getElementById('recCancelBtn').style.display = 'none';
+  document.getElementById('recTimer').textContent = '00:00';
+
+  // Reset paneles
+  document.getElementById('transcriptBody').innerHTML = '';
+  document.getElementById('summaryBody').innerHTML = '';
+  document.getElementById('transcriptBadge').className = 'result-pane-badge badge-wait';
+  document.getElementById('transcriptBadge').textContent = 'En espera';
+  document.getElementById('summaryBadge').className = 'result-pane-badge badge-wait';
+  document.getElementById('summaryBadge').textContent = 'En espera';
+  document.getElementById('savePanel').classList.remove('show');
+  setStage('tr');
+
+  showToast('Grabación cancelada', 'success');
+}
+
+function cancelarSubida() {
+  if (!confirm('¿Cancelar el proceso? El audio no se guardará.')) return;
+
+  // No podemos abortar Whisper del lado servidor, pero reseteamos la UI
+  document.getElementById('upProcessBtn').disabled = false;
+  document.getElementById('upProcessBtn').textContent = 'Procesar audio';
+  document.getElementById('upCancelBtn').style.display = 'none';
+  document.getElementById('upProgress').style.display = 'none';
+  document.getElementById('upResults').style.display = 'none';
+  document.getElementById('upSavePanel').classList.remove('show');
+  document.getElementById('upStatus').textContent = 'Proceso cancelado';
+  document.getElementById('upTranscriptBody').innerHTML = '';
+  document.getElementById('upSummaryBody').innerHTML = '';
+  uploadedFile = null;
+  document.getElementById('uploadFileName').textContent = '';
+  showToast('Proceso cancelado', 'success');
+}
 </script>
 {% endblock %}
