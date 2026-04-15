@@ -117,13 +117,13 @@ import torch
 # Detectar dispositivo disponible
 if torch.cuda.is_available():
     WHISPER_DEVICE = "cuda"
-    print("Cargando Whisper base en GPU (CUDA)...")
+    print("Cargando Whisper small en GPU (CUDA)...")
 else:
     WHISPER_DEVICE = "cpu"
-    print("Cargando Whisper base en CPU...")
+    print("Cargando Whisper small en CPU...")
 
-whisper_model = whisper.load_model("base", device=WHISPER_DEVICE)
-print(f"Whisper listo en {WHISPER_DEVICE.upper()}")
+whisper_model = whisper.load_model("small", device=WHISPER_DEVICE)
+print(f"Whisper small listo en {WHISPER_DEVICE.upper()}")
 
 def allowed_file(f):
     return '.' in f and f.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
